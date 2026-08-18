@@ -6,6 +6,7 @@
     "type": "object",
     "required": [
         "tactic",
+        "level",
         "objective",
         "formation",
         "phases"
@@ -29,6 +30,18 @@
                 "OVERLOAD",
                 "ISOLATE_WINGER",
                 "PRESSING_TRAP"
+            ]
+        },
+        "level": {
+            "type": "string",
+            "title": "Level",
+            "description": "The experience level for which this plan is intended.",
+            "enum": [
+                "LEVEL1_NOVICE",
+                "LEVEL2_BEGINNER",
+                "LEVEL3_INTERMEDIATE",
+                "LEVEL4_ADVANCED",
+                "LEVEL5_EXPERT"
             ]
         },
         "objective": {
