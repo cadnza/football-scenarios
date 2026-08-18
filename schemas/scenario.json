@@ -121,7 +121,8 @@
             "properties": {
                 "id": {
                     "type": "string",
-                    "title": "Player Identifier"
+                    "title": "Player Identifier",
+                    "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "role": {
                     "$ref": "#/$defs/role"
@@ -209,7 +210,8 @@
             "additionalProperties": false,
             "properties": {
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "name": {
                     "type": "string"

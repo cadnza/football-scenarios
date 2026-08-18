@@ -71,7 +71,8 @@
                 "id": {
                     "type": "string",
                     "title": "Phase Identifier",
-                    "description": "Unique identifier for this phase."
+                    "description": "Unique identifier for this phase.",
+                    "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "name": {
                     "type": "string",
