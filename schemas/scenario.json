@@ -1,0 +1,836 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "football-tactical-scenario.schema.json",
+    "title": "Football Tactical Scenario",
+    "description": "Event-sourced football tactical scenario using strongly typed football actions. Intended for LLM generation, tactical validation, simulation, animation, and coaching applications.",
+    "type": "object",
+    "required": [
+        "metadata",
+        "attacking_team",
+        "defending_team",
+        "initial_state",
+        "plan",
+        "events",
+        "expected_outcomes"
+    ],
+    "properties": {
+        "metadata": {
+            "$ref": "#/$defs/metadata"
+        },
+        "attacking_team": {
+            "$ref": "#/$defs/team"
+        },
+        "defending_team": {
+            "$ref": "#/$defs/team"
+        },
+        "initial_state": {
+            "$ref": "#/$defs/game_state"
+        },
+        "plan": {
+            "$ref": "#/$defs/plan"
+        },
+        "events": {
+            "type": "array",
+            "title": "Event Timeline",
+            "description": "Ordered football actions that collectively form the tactical sequence.",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/event"
+            }
+        },
+        "expected_outcomes": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/outcome"
+            }
+        },
+        "coaching_notes": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "$defs": {
+        "metadata": {
+            "type": "object",
+            "required": [
+                "title",
+                "tactic",
+                "objective",
+                "difficulty",
+                "play_direction"
+            ],
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "title": "Scenario Title",
+                    "description": "Human-readable title."
+                },
+                "tactic": {
+                    "$ref": "#/$defs/tactic"
+                },
+                "objective": {
+                    "type": "string",
+                    "title": "Objective",
+                    "description": "Coaching objective being demonstrated."
+                },
+                "difficulty": {
+                    "$ref": "#/$defs/difficulty"
+                },
+                "play_direction": {
+                    "$ref": "#/$defs/play_direction"
+                }
+            }
+        },
+        "team": {
+            "type": "object",
+            "required": [
+                "name",
+                "formation",
+                "players"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "formation": {
+                    "type": "string"
+                },
+                "players": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/player"
+                    }
+                }
+            }
+        },
+        "player": {
+            "type": "object",
+            "required": [
+                "id",
+                "role",
+                "team",
+                "starting_zone"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "title": "Player Identifier"
+                },
+                "role": {
+                    "$ref": "#/$defs/role"
+                },
+                "team": {
+                    "$ref": "#/$defs/team_type"
+                },
+                "starting_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "tactical_instructions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/tactical_instruction"
+                    }
+                }
+            }
+        },
+        "game_state": {
+            "type": "object",
+            "required": [
+                "ball_owner",
+                "ball_zone",
+                "defensive_block"
+            ],
+            "properties": {
+                "ball_owner": {
+                    "type": "string",
+                    "title": "Ball Owner",
+                    "description": "Player currently in possession."
+                },
+                "ball_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "defensive_block": {
+                    "$ref": "#/$defs/defensive_block"
+                }
+            }
+        },
+        "defensive_block": {
+            "type": "object",
+            "required": [
+                "height",
+                "compactness",
+                "pressure_level"
+            ],
+            "properties": {
+                "height": {
+                    "$ref": "#/$defs/block_height"
+                },
+                "compactness": {
+                    "$ref": "#/$defs/block_compactness"
+                },
+                "pressure_level": {
+                    "$ref": "#/$defs/pressure_level"
+                }
+            }
+        },
+        "plan": {
+            "type": "object",
+            "required": [
+                "phases"
+            ],
+            "properties": {
+                "phases": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/phase"
+                    }
+                }
+            }
+        },
+        "phase": {
+            "type": "object",
+            "required": [
+                "id",
+                "name",
+                "attacking_goal",
+                "success_condition"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "attacking_goal": {
+                    "type": "string"
+                },
+                "expected_defensive_response": {
+                    "$ref": "#/$defs/defensive_response"
+                },
+                "success_condition": {
+                    "type": "string"
+                }
+            }
+        },
+        "event": {
+            "type": "object",
+            "required": [
+                "event_id",
+                "sequence",
+                "phase_id",
+                "action",
+                "tactical_purpose"
+            ],
+            "properties": {
+                "event_id": {
+                    "type": "string"
+                },
+                "sequence": {
+                    "type": "integer"
+                },
+                "phase_id": {
+                    "type": "string"
+                },
+                "action": {
+                    "$ref": "#/$defs/action"
+                },
+                "tactical_purpose": {
+                    "$ref": "#/$defs/tactical_purpose"
+                },
+                "advantages_created": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/advantage"
+                    }
+                },
+                "tactical_explanation": {
+                    "type": "string"
+                }
+            }
+        },
+        "action": {
+            "title": "Football Action",
+            "description": "Strongly typed football action.",
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/pass_action"
+                },
+                {
+                    "$ref": "#/$defs/dribble_action"
+                },
+                {
+                    "$ref": "#/$defs/move_action"
+                },
+                {
+                    "$ref": "#/$defs/run_action"
+                },
+                {
+                    "$ref": "#/$defs/overlap_action"
+                },
+                {
+                    "$ref": "#/$defs/underlap_action"
+                },
+                {
+                    "$ref": "#/$defs/check_to_ball_action"
+                },
+                {
+                    "$ref": "#/$defs/third_man_run_action"
+                },
+                {
+                    "$ref": "#/$defs/cross_action"
+                },
+                {
+                    "$ref": "#/$defs/shot_action"
+                },
+                {
+                    "$ref": "#/$defs/press_action"
+                },
+                {
+                    "$ref": "#/$defs/shift_action"
+                },
+                {
+                    "$ref": "#/$defs/mark_action"
+                },
+                {
+                    "$ref": "#/$defs/track_runner_action"
+                },
+                {
+                    "$ref": "#/$defs/drop_action"
+                }
+            ]
+        },
+        "pass_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "from_player",
+                "to_player",
+                "from_zone",
+                "to_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "PASS"
+                },
+                "from_player": {
+                    "type": "string"
+                },
+                "to_player": {
+                    "type": "string"
+                },
+                "from_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "dribble_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player",
+                "from_zone",
+                "to_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "DRIBBLE"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "from_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "move_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player",
+                "from_zone",
+                "to_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "MOVE"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "from_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "run_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player",
+                "from_zone",
+                "to_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "RUN"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "from_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "overlap_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "runner",
+                "outside_player"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "OVERLAP"
+                },
+                "runner": {
+                    "type": "string"
+                },
+                "outside_player": {
+                    "type": "string"
+                }
+            }
+        },
+        "underlap_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "runner",
+                "outside_player"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "UNDERLAP"
+                },
+                "runner": {
+                    "type": "string"
+                },
+                "outside_player": {
+                    "type": "string"
+                }
+            }
+        },
+        "check_to_ball_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "CHECK_TO_BALL"
+                },
+                "player": {
+                    "type": "string"
+                }
+            }
+        },
+        "third_man_run_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "runner"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "THIRD_MAN_RUN"
+                },
+                "runner": {
+                    "type": "string"
+                }
+            }
+        },
+        "cross_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "from_player",
+                "target_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "CROSS"
+                },
+                "from_player": {
+                    "type": "string"
+                },
+                "target_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "shot_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player",
+                "shot_zone"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "SHOT"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "shot_zone": {
+                    "$ref": "#/$defs/zone"
+                }
+            }
+        },
+        "press_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player",
+                "target_player"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "PRESS"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "target_player": {
+                    "type": "string"
+                }
+            }
+        },
+        "shift_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "direction"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "SHIFT"
+                },
+                "direction": {
+                    "enum": [
+                        "LEFT",
+                        "RIGHT",
+                        "FORWARD",
+                        "BACKWARD"
+                    ]
+                }
+            }
+        },
+        "mark_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "defender",
+                "attacker"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "MARK"
+                },
+                "defender": {
+                    "type": "string"
+                },
+                "attacker": {
+                    "type": "string"
+                }
+            }
+        },
+        "track_runner_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "defender",
+                "runner"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "TRACK_RUNNER"
+                },
+                "defender": {
+                    "type": "string"
+                },
+                "runner": {
+                    "type": "string"
+                }
+            }
+        },
+        "drop_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "player"
+            ],
+            "properties": {
+                "action_type": {
+                    "const": "DROP"
+                },
+                "player": {
+                    "type": "string"
+                }
+            }
+        },
+        "tactic": {
+            "type": "string",
+            "enum": [
+                "SWITCH_PLAY",
+                "OVERLAP",
+                "UNDERLAP",
+                "THIRD_MAN_RUN",
+                "WALL_PASS",
+                "COUNTER_ATTACK",
+                "COUNTER_PRESS",
+                "CREATE_WIDTH",
+                "BREAK_LINE",
+                "OVERLOAD",
+                "ISOLATE_WINGER",
+                "PRESSING_TRAP"
+            ]
+        },
+        "difficulty": {
+            "type": "string",
+            "enum": [
+                "BEGINNER",
+                "INTERMEDIATE",
+                "ADVANCED"
+            ]
+        },
+        "play_direction": {
+            "type": "string",
+            "enum": [
+                "BOTTOM_TO_TOP",
+                "TOP_TO_BOTTOM",
+                "LEFT_TO_RIGHT",
+                "RIGHT_TO_LEFT"
+            ]
+        },
+        "team_type": {
+            "type": "string",
+            "enum": [
+                "ATTACK",
+                "DEFEND"
+            ]
+        },
+        "role": {
+            "type": "string",
+            "enum": [
+                "GK",
+                "LB",
+                "LCB",
+                "CB",
+                "RCB",
+                "RB",
+                "LWB",
+                "RWB",
+                "DM",
+                "LCM",
+                "CM",
+                "RCM",
+                "CAM",
+                "LW",
+                "RW",
+                "LIF",
+                "RIF",
+                "ST"
+            ]
+        },
+        "zone": {
+            "type": "string",
+            "enum": [
+                "DEF_LEFT_CORNER",
+                "DEF_LEFT_WING",
+                "DEF_LEFT_HALFSPACE",
+                "DEF_LEFT_CHANNEL",
+                "DEF_CENTER_LEFT",
+                "DEF_CENTER",
+                "DEF_CENTER_RIGHT",
+                "DEF_RIGHT_CHANNEL",
+                "DEF_RIGHT_HALFSPACE",
+                "DEF_RIGHT_WING",
+                "DEF_RIGHT_CORNER",
+                "MID_LEFT_TOUCHLINE",
+                "MID_LEFT_WING",
+                "MID_LEFT_HALFSPACE",
+                "MID_LEFT_CHANNEL",
+                "MID_CENTER_LEFT",
+                "MID_CENTER",
+                "MID_CENTER_RIGHT",
+                "MID_RIGHT_CHANNEL",
+                "MID_RIGHT_HALFSPACE",
+                "MID_RIGHT_WING",
+                "MID_RIGHT_TOUCHLINE",
+                "ATT_LEFT_CORNER",
+                "ATT_LEFT_WING",
+                "ATT_LEFT_HALFSPACE",
+                "ATT_LEFT_CHANNEL",
+                "ATT_ZONE14_LEFT",
+                "ATT_ZONE14",
+                "ATT_ZONE14_RIGHT",
+                "ATT_RIGHT_CHANNEL",
+                "ATT_RIGHT_HALFSPACE",
+                "ATT_RIGHT_WING",
+                "ATT_RIGHT_CORNER",
+                "LEFT_BOX",
+                "CENTER_BOX",
+                "RIGHT_BOX",
+                "PENALTY_SPOT",
+                "SIX_YARD_BOX"
+            ]
+        },
+        "tactical_purpose": {
+            "type": "string",
+            "enum": [
+                "CREATE_WIDTH",
+                "ATTRACT_PRESSURE",
+                "SWITCH_PLAY",
+                "BREAK_LINE",
+                "CREATE_ISOLATION",
+                "CREATE_NUMERICAL_ADVANTAGE",
+                "CREATE_POSITIONAL_ADVANTAGE",
+                "THIRD_MAN_COMBINATION",
+                "ATTACK_SPACE",
+                "PROGRESS_POSSESSION",
+                "CREATE_SHOOTING_OPPORTUNITY",
+                "CREATE_CROSSING_OPPORTUNITY"
+            ]
+        },
+        "tactical_instruction": {
+            "type": "string",
+            "enum": [
+                "HOLD_WIDTH",
+                "STAY_HIGH",
+                "DROP_BETWEEN_LINES",
+                "PIN_DEFENDER",
+                "ATTACK_SPACE",
+                "PROVIDE_SUPPORT",
+                "OVERLAP",
+                "UNDERLAP",
+                "ARRIVE_LATE_IN_BOX",
+                "CHECK_TO_BALL"
+            ]
+        },
+        "defensive_response": {
+            "type": "string",
+            "enum": [
+                "SHIFT_LEFT",
+                "SHIFT_RIGHT",
+                "STEP_FORWARD",
+                "DROP_DEEPER",
+                "DOUBLE_TEAM",
+                "TRACK_RUNNER",
+                "PRESS_BALL",
+                "PROTECT_CENTER"
+            ]
+        },
+        "advantage_type": {
+            "type": "string",
+            "enum": [
+                "NUMERICAL_ADVANTAGE",
+                "POSITIONAL_ADVANTAGE",
+                "ISOLATION",
+                "WEAK_SIDE_ACCESS",
+                "LINE_BREAK",
+                "SPACE_CREATED",
+                "SHOT_OPPORTUNITY"
+            ]
+        },
+        "outcome_type": {
+            "type": "string",
+            "enum": [
+                "BALL_CHANGES_FLANK",
+                "DEFENSIVE_BLOCK_SHIFTS",
+                "WEAK_SIDE_RECEIVER_AVAILABLE",
+                "ISOLATION_CREATED",
+                "LINE_BROKEN",
+                "SHOT_CREATED",
+                "CROSS_CREATED"
+            ]
+        },
+        "outcome": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "$ref": "#/$defs/outcome_type"
+                },
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
+        "advantage": {
+            "type": "object",
+            "required": [
+                "type"
+            ],
+            "properties": {
+                "type": {
+                    "$ref": "#/$defs/advantage_type"
+                },
+                "zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "player": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
+        "block_height": {
+            "type": "string",
+            "enum": [
+                "HIGH_PRESS",
+                "MID_BLOCK",
+                "LOW_BLOCK"
+            ]
+        },
+        "block_compactness": {
+            "type": "string",
+            "enum": [
+                "COMPACT",
+                "NORMAL",
+                "STRETCHED"
+            ]
+        },
+        "pressure_level": {
+            "type": "string",
+            "enum": [
+                "LOW",
+                "MEDIUM",
+                "HIGH"
+            ]
+        }
+    }
+}

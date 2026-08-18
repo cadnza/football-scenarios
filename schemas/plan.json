@@ -1,0 +1,87 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "football-plan.schema.json",
+    "title": "Football Tactical Plan",
+    "description": "A high-level tactical plan describing the phases required to demonstrate a football concept. This schema is intended for planning and reasoning rather than animation.",
+    "type": "object",
+    "required": [
+        "tactic",
+        "objective",
+        "formation",
+        "phases"
+    ],
+    "properties": {
+        "tactic": {
+            "type": "string",
+            "title": "Tactical Concept",
+            "description": "The tactical concept being demonstrated.",
+            "enum": [
+                "SWITCH_PLAY",
+                "OVERLAP",
+                "UNDERLAP",
+                "THIRD_MAN_RUN",
+                "WALL_PASS",
+                "COUNTER_ATTACK",
+                "COUNTER_PRESS",
+                "CREATE_WIDTH",
+                "BREAK_LINE",
+                "OVERLOAD",
+                "ISOLATE_WINGER",
+                "PRESSING_TRAP"
+            ]
+        },
+        "objective": {
+            "type": "string",
+            "title": "Coaching Objective",
+            "description": "A concise statement describing what the play is intended to achieve."
+        },
+        "formation": {
+            "type": "string",
+            "title": "Attacking Formation",
+            "description": "The attacking team's starting formation.",
+            "examples": [
+                "4-3-3",
+                "4-2-3-1",
+                "3-4-3"
+            ]
+        },
+        "phases": {
+            "type": "array",
+            "title": "Tactical Phases",
+            "description": "Ordered phases that collectively demonstrate the tactic.",
+            "minItems": 1,
+            "items": {
+                "$ref": "#/$defs/phase"
+            }
+        }
+    },
+    "$defs": {
+        "phase": {
+            "type": "object",
+            "title": "Tactical Phase",
+            "description": "A tactical phase representing a coherent segment of the overall concept.",
+            "required": [
+                "id",
+                "name",
+                "goal"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "title": "Phase Identifier",
+                    "description": "Unique identifier for this phase."
+                },
+                "name": {
+                    "type": "string",
+                    "title": "Phase Name",
+                    "description": "Short descriptive name for the phase."
+                },
+                "goal": {
+                    "type": "string",
+                    "title": "Phase Goal",
+                    "description": "What tactical outcome this phase should achieve."
+                }
+            }
+        }
+    }
+}
