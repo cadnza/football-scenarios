@@ -1,3 +1,10 @@
+---
+name: Write Plans
+description: Write high-level tactical plans
+tools: [vscode, execute, read, agent, edit, search, web, browser, new, todo]
+agent: agent
+---
+
 For each enum variant in `properties.tactic.enum` of #file:../../schemas/plan.json , please generate 3 YAML files in the #file:../../plans/ directory of this repo (so 36 files total). Each file should conform to #file:../../schemas/plan.json .
 
 Notes:
