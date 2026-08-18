@@ -1,0 +1,26 @@
+{
+    "yaml.schemas": {
+        "./schemas/plan.json": [
+            "plans/*.yml",
+            "plans/*.yaml"
+        ],
+        "./schemas/scenario.json": [
+            "scenarios/*.yml",
+            "scenarios/*.yaml"
+        ]
+    },
+    "json.schemas": [
+        {
+            "url": "./schemas/plan.json",
+            "fileMatch": [
+                "/plans/*.json"
+            ]
+        },
+        {
+            "url": "./schemas/scenario.json",
+            "fileMatch": [
+                "/scenarios/*.json"
+            ]
+        }
+    ]
+}
