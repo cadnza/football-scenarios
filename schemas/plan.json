@@ -10,6 +10,7 @@
         "formation",
         "phases"
     ],
+    "additionalProperties": false,
     "properties": {
         "tactic": {
             "type": "string",
@@ -65,6 +66,7 @@
                 "name",
                 "goal"
             ],
+            "additionalProperties": false,
             "properties": {
                 "id": {
                     "type": "string",

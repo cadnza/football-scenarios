@@ -13,6 +13,7 @@
         "events",
         "expected_outcomes"
     ],
+    "additionalProperties": false,
     "properties": {
         "metadata": {
             "$ref": "#/$defs/metadata"
@@ -61,6 +62,7 @@
                 "difficulty",
                 "play_direction"
             ],
+            "additionalProperties": false,
             "properties": {
                 "title": {
                     "type": "string",
@@ -90,6 +92,7 @@
                 "formation",
                 "players"
             ],
+            "additionalProperties": false,
             "properties": {
                 "name": {
                     "type": "string"
@@ -114,6 +117,7 @@
                 "team",
                 "starting_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "id": {
                     "type": "string",
@@ -143,6 +147,7 @@
                 "ball_zone",
                 "defensive_block"
             ],
+            "additionalProperties": false,
             "properties": {
                 "ball_owner": {
                     "type": "string",
@@ -164,6 +169,7 @@
                 "compactness",
                 "pressure_level"
             ],
+            "additionalProperties": false,
             "properties": {
                 "height": {
                     "$ref": "#/$defs/block_height"
@@ -181,6 +187,7 @@
             "required": [
                 "phases"
             ],
+            "additionalProperties": false,
             "properties": {
                 "phases": {
                     "type": "array",
@@ -199,6 +206,7 @@
                 "attacking_goal",
                 "success_condition"
             ],
+            "additionalProperties": false,
             "properties": {
                 "id": {
                     "type": "string"
@@ -226,6 +234,7 @@
                 "action",
                 "tactical_purpose"
             ],
+            "additionalProperties": false,
             "properties": {
                 "event_id": {
                     "type": "string"
@@ -313,6 +322,7 @@
                 "from_zone",
                 "to_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "PASS"
@@ -339,6 +349,7 @@
                 "from_zone",
                 "to_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "DRIBBLE"
@@ -362,6 +373,7 @@
                 "from_zone",
                 "to_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "MOVE"
@@ -385,6 +397,7 @@
                 "from_zone",
                 "to_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "RUN"
@@ -407,6 +420,7 @@
                 "runner",
                 "outside_player"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "OVERLAP"
@@ -426,6 +440,7 @@
                 "runner",
                 "outside_player"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "UNDERLAP"
@@ -444,6 +459,7 @@
                 "action_type",
                 "player"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "CHECK_TO_BALL"
@@ -459,6 +475,7 @@
                 "action_type",
                 "runner"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "THIRD_MAN_RUN"
@@ -475,6 +492,7 @@
                 "from_player",
                 "target_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "CROSS"
@@ -494,6 +512,7 @@
                 "player",
                 "shot_zone"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "SHOT"
@@ -513,6 +532,7 @@
                 "player",
                 "target_player"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "PRESS"
@@ -531,6 +551,7 @@
                 "action_type",
                 "direction"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "SHIFT"
@@ -552,6 +573,7 @@
                 "defender",
                 "attacker"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "MARK"
@@ -571,6 +593,7 @@
                 "defender",
                 "runner"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "TRACK_RUNNER"
@@ -589,6 +612,7 @@
                 "action_type",
                 "player"
             ],
+            "additionalProperties": false,
             "properties": {
                 "action_type": {
                     "const": "DROP"
@@ -779,6 +803,7 @@
             "required": [
                 "type"
             ],
+            "additionalProperties": false,
             "properties": {
                 "type": {
                     "$ref": "#/$defs/outcome_type"
@@ -793,6 +818,7 @@
             "required": [
                 "type"
             ],
+            "additionalProperties": false,
             "properties": {
                 "type": {
                     "$ref": "#/$defs/advantage_type"
