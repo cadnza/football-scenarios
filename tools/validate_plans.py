@@ -24,15 +24,15 @@ errors = 0
 for path in files:
     # Validate YAML structure
     try:
-        with open(path) as f:
+        with Path(path).open() as f:
             data = yaml.safe_load(f)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         sys.stderr.write(f"YAML ERROR  {path}: {e}\n")
         errors += 1
         continue
 
     # Validate schema conformance
-    errs = sorted(validator.iter_errors(data), key=lambda e: e.path)
+    errs = sorted(validator.iter_errors(data), key=lambda e: e.path)  # pyright: ignore[reportUnknownMemberType]
     if errs:
         errors += 1
         sys.stderr.write(f"SCHEMA ERR {path}:\n")
