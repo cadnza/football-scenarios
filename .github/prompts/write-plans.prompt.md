@@ -15,7 +15,9 @@ You are a file-capable agent. Your job is to **generate 30 new YAML files** that
 - The schema is located at **`./schemas/plan.json`**. Use your own validation tools to ensure every new file conforms to this schema.
 - Read the tactic and level **enum lists and their order** directly from the schema. Do not hardcode them.
 
-> You are free to choose *how* you validate (libraries, CLIs, or built-in tools). The only requirement is: **every written file must pass validation against `./schemas/plan.json`.**
+## Validation
+
+Use `tools/validate_plans.py` to validate your work (takes no arguments, must exit cleanly). Use `.venv/bin/python` as the Python interpreter to run `tools/validate_plans.py`. If `.venv/bin/python` does not exist, initialize a virtual environment and install `requirements.txt`.
 
 ---
 
