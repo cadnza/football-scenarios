@@ -93,3 +93,14 @@ class Config:
                 f.name,
             ),
         )
+
+    @classmethod
+    def from_file(cls, f: Path) -> "Config":
+        """Create a new instance from a file."""
+        x = f.name.split(".")[0].split("-")
+        return Config(
+            idx=int(x[0]),
+            tactic=x[1],
+            level=x[2],
+            sequence_number=int(x[3]),
+        )

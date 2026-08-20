@@ -24,15 +24,7 @@ files = sorted(
 # Retrieve last file as config
 lf = (
     max(
-        [
-            Config(
-                idx=int(z[0]),
-                tactic=z[1],
-                level=z[2],
-                sequence_number=int(z[3]),
-            )
-            for z in [f.name.split(".")[0].split("-") for f in files]
-        ],
+        [Config.from_file(f) for f in files],
         key=lambda x: x.idx,
     ).increment()
     if files
