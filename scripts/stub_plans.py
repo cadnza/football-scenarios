@@ -38,7 +38,7 @@ lf = (
             for z in [f.name.split(".")[0].split("-") for f in files]
         ],
         key=lambda x: x.idx,
-    )
+    ).increment()
     if files
     else Config(
         idx=1,
