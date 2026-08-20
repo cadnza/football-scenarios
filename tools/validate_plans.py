@@ -39,11 +39,6 @@ for path in files:
         for e in errs:
             loc = "/".join(str(p) for p in e.path) or "<root>"
             sys.stderr.write(f"   - {loc}: {e.message}\n")
-    else:
-        tactics = {d["tactic"] for d in [data]}
-        sys.stderr.write(
-            f"OK         {path}  [{data['tactic']}] phases={len(data['phases'])}\n",
-        )
 
 # Show summary
 sys.stderr.write(f"\nFiles with errors: {errors}\n")
