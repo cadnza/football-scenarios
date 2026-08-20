@@ -1,6 +1,7 @@
 # Read in schema
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -125,3 +126,15 @@ lf = (
         sequence_number=1,
     )
 )
+
+# Read number of files
+n_args = 1
+if len(sys.argv) < 1 + n_args:
+    msg = "Please supply a number of files to generate"
+    raise ValueError(msg)
+n_files = int(sys.argv[1])
+
+# Generate files
+for _ in range(n_files):
+    lf.write_stub()
+    lf = lf.increment()
