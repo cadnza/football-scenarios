@@ -10,14 +10,18 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from libs.config import Config
 
+# Orient
+here = Path(__file__).resolve().parents[1]
+
 # Open validator
-with Path("schemas/plan.json").open() as f:
+with (here / "schemas" / "plan.json").open() as f:
     schema = json.load(f)
 validator = Draft202012Validator(schema)
 
 # Collect files
+dir_plans = here / "plans"
 files = sorted(
-    [y for x in [Path("plans").glob("*.yml"), Path("plans").glob("*.yaml")] for y in x],
+    [y for x in [dir_plans.glob("*.yml"), dir_plans.glob("*.yaml")] for y in x],
     key=lambda x: x.name,
 )
 sys.stderr.write(f"Found {len(files)} plan files\n")
