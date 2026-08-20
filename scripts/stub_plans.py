@@ -3,6 +3,9 @@ import re
 import sys
 from pathlib import Path
 
+# Add root to import path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 from libs.config import Config, levels, tactics
 
 # Calculate starting point
