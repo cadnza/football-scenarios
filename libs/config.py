@@ -83,9 +83,18 @@ class Config:
 
     def write_stubs(self) -> None:
         """Write this file's stubs (plan and scenario)."""
-        for path in self.filepaths:
-            with path.open("w", encoding="utf-8") as f:
-                f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
+        path_plans = self.filepaths[0]
+        path_scenarios = self.filepaths[1]
+        with path_plans.open("w", encoding="utf-8") as f:
+            f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
+        with path_scenarios.open("w", encoding="utf-8") as f:
+            f.writelines(
+                [
+                    "metadata:\n",
+                    f"  tactic: {self.tactic}\n",
+                    f"  difficulty: {self.level}\n",
+                ],
+            )
 
     @classmethod
     def validate_filename(cls, f: Path) -> bool:
