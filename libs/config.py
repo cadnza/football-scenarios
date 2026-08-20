@@ -73,7 +73,7 @@ class Config:
         return f"{self.title}.yaml"
 
     @property
-    def filepath(self) -> tuple[Path, Path]:
+    def filepaths(self) -> tuple[Path, Path]:
         """The paths of the files represented by this config."""
         dir_plans = _here / "plans"
         dir_plans.mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ class Config:
 
     def write_stubs(self) -> None:
         """Write this file's stubs (plan and scenario)."""
-        for path in self.filepath:
+        for path in self.filepaths:
             with path.open("w", encoding="utf-8") as f:
                 f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
 
