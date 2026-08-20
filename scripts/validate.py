@@ -6,6 +6,8 @@ from typing import Literal, cast
 import yaml
 from jsonschema import Draft202012Validator
 
+from libs.scenario_g import FootballTacticalScenario
+
 # Add root to import path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
@@ -91,7 +93,20 @@ for path in files:
                         f"   - Value of `level` should be `{config.level}`\n",
                     )
         case "scenarios":
-            raise NotImplementedError  # TODO: Handle
+            data = FootballTacticalScenario.model_validate(data)
+            tactic_correct = data.metadata.tactic.name == config.tactic
+            difficulty_correct = data.metadata.difficulty.name == config.level
+            if not (tactic_correct and difficulty_correct):
+                errors += 1
+                sys.stderr.write(f"VALUE ERR {path}:\n")
+                if not tactic_correct:
+                    sys.stderr.write(
+                        f"   - Value of `metadata.tactic` should be `{config.tactic}`\n",
+                    )
+                if not difficulty_correct:
+                    sys.stderr.write(
+                        f"   - Value of `metadata.difficulty` should be `{config.level}`\n",
+                    )
 
 # Show summary
 sys.stderr.write(f"\nFiles with errors: {errors}\n")
