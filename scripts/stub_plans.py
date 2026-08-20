@@ -1,5 +1,4 @@
 # Read in schema
-import re
 import sys
 from pathlib import Path
 
@@ -17,10 +16,7 @@ files = sorted(
             Path("plans").glob("*.yaml"),
         ]
         for y in x
-        if re.fullmatch(
-            rf"^\d+-({'|'.join(tactics)})-({'|'.join(levels)})-\d+\.ya?ml$",
-            y.name,
-        )
+        if Config.validate_filename(y)
     ],
     key=lambda x: x.name,
 )

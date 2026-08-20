@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -82,3 +83,13 @@ class Config:
         """Write this file's stub."""
         with self.filepath.open("w", encoding="utf-8") as f:
             f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
+
+    @classmethod
+    def validate_filename(cls, f: Path) -> bool:
+        """Validate whether a file has a name that refers to a config."""
+        return bool(
+            re.fullmatch(
+                rf"^\d+-({'|'.join(tactics)})-({'|'.join(levels)})-\d+\.ya?ml$",
+                f.name,
+            ),
+        )
