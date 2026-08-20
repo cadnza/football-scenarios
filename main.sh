@@ -23,10 +23,10 @@ venv="$here/.venv"
 mkdir -p "$here/plans"
 "$venv/bin/python" "$here/scripts/stub_plans.py" "$n_files"
 
-# Invoke LLM to fill in stubbed plans
-codex \
-    --oss \
-    --local-provider ollama \
-    -m qwen3.8:27b-mlx \
-    exec \
-    "$(cat "$here/prompts/write-plans.md")"
+# Invoke LLM agent to fill in stubbed plans
+(cd "$here" && ollama launch opencode \
+    --model qwen3.8:27b-mlx \
+    -- \
+    run \
+    "$(cat "$here/prompts/write-plans.md")" \
+    --auto)
