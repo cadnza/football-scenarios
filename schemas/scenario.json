@@ -644,9 +644,11 @@
         "difficulty": {
             "type": "string",
             "enum": [
-                "BEGINNER",
-                "INTERMEDIATE",
-                "ADVANCED"
+                "LEVEL1_NOVICE",
+                "LEVEL2_BEGINNER",
+                "LEVEL3_INTERMEDIATE",
+                "LEVEL4_ADVANCED",
+                "LEVEL5_EXPERT"
             ]
         },
         "play_direction": {
