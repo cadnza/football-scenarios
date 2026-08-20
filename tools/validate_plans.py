@@ -5,6 +5,11 @@ from pathlib import Path
 import yaml
 from jsonschema import Draft202012Validator
 
+# Add root to import path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from libs.config import Config
+
 # Open validator
 with Path("schemas/plan.json").open() as f:
     schema = json.load(f)
@@ -39,6 +44,22 @@ for path in files:
         for e in errs:
             loc = "/".join(str(p) for p in e.path) or "<root>"
             sys.stderr.write(f"   - {loc}: {e.message}\n")
+
+    # Break on schema non-conformance (so we can assume correct deserialization from here)
+    if errs:
+        continue
+
+    # Perform post-schema checks
+    config = Config.from_file(path)
+    tactic_correct = data["tactic"] == config.tactic
+    level_correct = data["level"] == config.level
+    if not (tactic_correct and level_correct):
+        errors += 1
+        sys.stderr.write(f"VALUE ERR {path}:\n")
+        if not tactic_correct:
+            sys.stderr.write(f"   - Value of `tactic` should be `{config.tactic}`\n")
+        if not level_correct:
+            sys.stderr.write(f"   - Value of `level` should be `{config.level}`\n")
 
 # Show summary
 sys.stderr.write(f"\nFiles with errors: {errors}\n")
