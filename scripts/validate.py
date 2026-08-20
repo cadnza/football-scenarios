@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from libs.config import Config
+from libs.plan_g import FootballTacticalPlan
 
 # Orient
 here = Path(__file__).resolve().parents[1]
@@ -75,8 +76,9 @@ for path in files:
     # Switch on mode
     match mode:
         case "plans":
-            tactic_correct = data["tactic"] == config.tactic
-            level_correct = data["level"] == config.level
+            data = FootballTacticalPlan.model_validate(data)
+            tactic_correct = data.tactic.name == config.tactic
+            level_correct = data.level.name == config.level
             if not (tactic_correct and level_correct):
                 errors += 1
                 sys.stderr.write(f"VALUE ERR {path}:\n")
