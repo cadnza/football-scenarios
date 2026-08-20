@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
+# Orient
+here = Path(__file__).parent.parent
+
 
 @dataclass(frozen=True, kw_only=True)
 class Config:
@@ -63,16 +66,18 @@ class Config:
     @property
     def filepath(self) -> Path:
         """The path of the file represented by this config."""
-        return Path("plans") / self.filename
+        dir_plans = here / "plans"
+        dir_plans.mkdir(parents=True, exist_ok=True)
+        return dir_plans / self.filename
 
     def write_stub(self) -> None:
         """Write this file's stub."""
         with self.filepath.open("w", encoding="utf-8") as f:
-            f.writelines([f"tactic: {self.tactic}", f"level: {self.level}"])
+            f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
 
 
 # Load schema
-with Path("schemas/plan.json").open() as f_schema:
+with (here / "schemas" / "plan.json").open() as f_schema:
     schema = json.load(f_schema)
 
     # Read tactics
