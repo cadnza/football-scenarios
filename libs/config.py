@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import cast
 
 # Orient
-_here = Path(__file__).parent.parent
+_here = Path(__file__).resolve().parents[1]
 
 # Load schema
 with (_here / "schemas" / "plan.json").open() as f_schema:
