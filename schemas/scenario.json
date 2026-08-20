@@ -133,11 +133,36 @@
                 "starting_zone": {
                     "$ref": "#/$defs/zone"
                 },
+                "starting_position": {
+                    "$ref": "#/$defs/zone_position"
+                },
                 "tactical_instructions": {
                     "type": "array",
                     "items": {
                         "$ref": "#/$defs/tactical_instruction"
                     }
+                }
+            }
+        },
+        "zone_position": {
+            "type": "object",
+            "title": "Zone Position",
+            "description": "Optional refinement of a player's position within the player's starting tactical zone. Offsets are normalized values from -1.0 to 1.0 and should be used to establish spacing within the zone rather than to specify exact pitch coordinates.",
+            "additionalProperties": false,
+            "properties": {
+                "lane_offset": {
+                    "type": "number",
+                    "title": "Lane Offset",
+                    "description": "Lateral position within the zone. Negative values move toward the left side of the zone and positive values move toward the right side.",
+                    "minimum": -1.0,
+                    "maximum": 1.0
+                },
+                "depth_offset": {
+                    "type": "number",
+                    "title": "Depth Offset",
+                    "description": "Position along the attacking direction within the zone. Negative values move toward the defending goal and positive values move toward the attacking goal.",
+                    "minimum": -1.0,
+                    "maximum": 1.0
                 }
             }
         },
