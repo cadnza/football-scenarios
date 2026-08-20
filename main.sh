@@ -20,8 +20,7 @@ venv="$here/.venv"
 }
 
 # Stub plan files
-mkdir -p "$here/plans"
-"$venv/bin/python" "$here/scripts/stub_plans.py" "$n_files"
+"$venv/bin/python" "$here/scripts/stub_files.py" "$n_files"
 
 # Invoke LLM agent to fill in stubbed plans
 (cd "$here" && ollama launch opencode \

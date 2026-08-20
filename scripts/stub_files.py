@@ -45,5 +45,5 @@ n_files = int(sys.argv[1])
 
 # Generate files
 for _ in range(n_files):
-    lf.write_stub()
+    lf.write_stubs()
     lf = lf.increment()

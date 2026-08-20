@@ -69,20 +69,23 @@ class Config:
 
     @property
     def filename(self) -> str:
-        """The basename of the file represented by this config."""
+        """The basename of each file represented by this config."""
         return f"{self.title}.yaml"
 
     @property
-    def filepath(self) -> Path:
-        """The path of the file represented by this config."""
+    def filepath(self) -> tuple[Path, Path]:
+        """The paths of the files represented by this config."""
         dir_plans = _here / "plans"
         dir_plans.mkdir(parents=True, exist_ok=True)
-        return dir_plans / self.filename
+        dir_scenarios = _here / "scenarios"
+        dir_scenarios.mkdir(parents=True, exist_ok=True)
+        return (dir_plans / self.filename, dir_scenarios / self.filename)
 
-    def write_stub(self) -> None:
-        """Write this file's stub."""
-        with self.filepath.open("w", encoding="utf-8") as f:
-            f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
+    def write_stubs(self) -> None:
+        """Write this file's stubs (plan and scenario)."""
+        for path in self.filepath:
+            with path.open("w", encoding="utf-8") as f:
+                f.writelines([f"tactic: {self.tactic}\n", f"level: {self.level}\n"])
 
     @classmethod
     def validate_filename(cls, f: Path) -> bool:
