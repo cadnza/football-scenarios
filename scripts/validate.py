@@ -7,6 +7,7 @@ import yaml
 from jsonschema import Draft202012Validator
 
 from libs.scenario_g import FootballTacticalScenario
+from libs.validate_scenario_semantics import validate_scenario_semantics
 
 # Add root to import path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
@@ -77,8 +78,12 @@ for path in files:
 
     # Switch on mode
     match mode:
+        # Validate plan
         case "plans":
+            # Read in data
             data = FootballTacticalPlan.model_validate(data)
+
+            # Ensure tactic and level are correct
             tactic_correct = data.tactic.name == config.tactic
             level_correct = data.level.name == config.level
             if not (tactic_correct and level_correct):
@@ -92,9 +97,14 @@ for path in files:
                     sys.stderr.write(
                         f"   - Value of `level` should be `{config.level}`\n",
                     )
+
+        # Validate scenario
         case "scenarios":
+            # Read in data
             data = FootballTacticalScenario.model_validate(data)
             tactic_correct = data.metadata.tactic.name == config.tactic
+
+            # Ensure tactic and level are correct
             difficulty_correct = data.metadata.difficulty.name == config.level
             if not (tactic_correct and difficulty_correct):
                 errors += 1
@@ -107,6 +117,9 @@ for path in files:
                     sys.stderr.write(
                         f"   - Value of `metadata.difficulty` should be `{config.level}`\n",
                     )
+
+            # Validate semantics
+            errors += validate_scenario_semantics(data, path)
 
 # Show summary
 sys.stderr.write(f"\nFiles with errors: {errors}\n")
