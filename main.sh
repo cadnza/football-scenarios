@@ -29,3 +29,11 @@ venv="$here/.venv"
     run \
     "$(cat "$here/prompts/write-plans.md")" \
     --auto)
+
+# Invoke LLM agent to fill in stubbed scenarios
+(cd "$here" && ollama launch opencode \
+    --model qwen3.8:27b-mlx \
+    -- \
+    run \
+    "$(cat "$here/prompts/write-scenarios.md")" \
+    --auto)
