@@ -7,13 +7,16 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from libs.config import Config, levels, tactics
 
+# Orient
+here = Path(__file__).resolve().parents[1]
+
 # Calculate starting point
 files = sorted(
     [
         y
         for x in [
-            Path("plans").glob("*.yml"),
-            Path("plans").glob("*.yaml"),
+            (here / "plans").glob("*.yml"),
+            (here / "plans").glob("*.yaml"),
         ]
         for y in x
         if Config.validate_filename(y)
