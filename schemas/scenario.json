@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "football-tactical-scenario.schema.json",
     "title": "Football Tactical Scenario",
-    "description": "Event-sourced football tactical scenario using strongly typed football actions. Intended for LLM generation, tactical validation, simulation, animation, and coaching applications.",
+    "description": "Event-sourced association-football tactical scenario. This schema is the normative semantic contract for scenario instances. The canonical corpus format is YAML 1.2 restricted to the JSON data model: exactly one document per file; mapping keys must be strings; anchors, aliases, merge keys, explicit YAML tags, non-string mapping keys, multiple documents, and non-finite numeric values such as .inf and .nan are prohibited. Consumers validate the JSON data model produced by parsing the YAML; the JSON Schema itself does not validate YAML syntax. All structured fields are load-bearing and must be sufficient for a renderer or simulator to reproduce the scenario's semantic state without interpreting prose fields.",
     "type": "object",
     "required": [
         "metadata",
@@ -33,7 +33,7 @@
         "events": {
             "type": "array",
             "title": "Event Timeline",
-            "description": "Ordered football actions that collectively form the tactical sequence.",
+            "description": "Events are stored in chronological sequence. Array order is authoritative and is represented redundantly by the required 1-based sequence field. Sequence values must be contiguous and equal to their 1-based array positions. Events are not necessarily sequential in time: two or more events may overlap or occur simultaneously when their time intervals overlap or their start_time values are equal.",
             "minItems": 1,
             "items": {
                 "$ref": "#/$defs/event"
@@ -41,12 +41,14 @@
         },
         "expected_outcomes": {
             "type": "array",
+            "description": "Guaranteed end-state assertions for the scenario. An expected outcome is not merely a hoped-for result and is not an assertion about something that may occur transiently during the sequence. If an outcome is not guaranteed by the scenario's structured event stream, it must not be included here.",
             "items": {
                 "$ref": "#/$defs/outcome"
             }
         },
         "coaching_notes": {
             "type": "array",
+            "description": "Human-facing notes intended for a coach or instructor. These are post-play explanatory material and may reveal the tactic or its solution. They are not load-bearing: a consumer must never need to parse them to determine player positions, ball state, timing, tactic, or any other structured fact.",
             "items": {
                 "type": "string"
             }
@@ -67,7 +69,7 @@
                 "title": {
                     "type": "string",
                     "title": "Scenario Title",
-                    "description": "Human-readable title."
+                    "description": "Human-readable scenario title. This field is explanatory metadata and may be displayed to the learner."
                 },
                 "tactic": {
                     "$ref": "#/$defs/tactic"
@@ -75,7 +77,7 @@
                 "objective": {
                     "type": "string",
                     "title": "Objective",
-                    "description": "Coaching objective being demonstrated."
+                    "description": "Human-readable coaching objective. This field is explanatory and is not required to determine the structured tactical classification."
                 },
                 "difficulty": {
                     "$ref": "#/$defs/difficulty"
@@ -87,6 +89,7 @@
         },
         "team": {
             "type": "object",
+            "description": "A team participating in the scenario. Player IDs are globally unique across both teams because actions reference players by bare ID. Team membership is therefore determined exclusively by which root team.players array contains the player; it is intentionally not duplicated on the player object.",
             "required": [
                 "name",
                 "formation",
@@ -98,7 +101,8 @@
                     "type": "string"
                 },
                 "formation": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-readable formation notation, such as 4-3-3. Formation is descriptive metadata; the actual starting player locations are determined by each player's starting_zone and optional starting_position."
                 },
                 "players": {
                     "type": "array",
@@ -114,7 +118,6 @@
             "required": [
                 "id",
                 "role",
-                "team",
                 "starting_zone"
             ],
             "additionalProperties": false,
@@ -122,13 +125,11 @@
                 "id": {
                     "type": "string",
                     "title": "Player Identifier",
+                    "description": "Globally unique player identifier within the entire scenario, not merely within a team. Because actions reference players by bare ID, duplicate IDs across either team are invalid. IDs must be unique across both attacking_team.players and defending_team.players.",
                     "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "role": {
                     "$ref": "#/$defs/role"
-                },
-                "team": {
-                    "$ref": "#/$defs/team_type"
                 },
                 "starting_zone": {
                     "$ref": "#/$defs/zone"
@@ -138,6 +139,7 @@
                 },
                 "tactical_instructions": {
                     "type": "array",
+                    "description": "Human-readable structured instruction labels describing the player's intended tactical behavior. These instructions are declarative coaching metadata, not additional movement events.",
                     "items": {
                         "$ref": "#/$defs/tactical_instruction"
                     }
@@ -147,20 +149,20 @@
         "zone_position": {
             "type": "object",
             "title": "Zone Position",
-            "description": "Optional refinement of a player's position within the player's starting tactical zone. Offsets are normalized values from -1.0 to 1.0 and should be used to establish spacing within the zone rather than to specify exact pitch coordinates.",
+            "description": "Refinement of a player's position within a zone. Both offsets are normalized independently from -1.0 to 1.0. Zero is the exact geometric center of the zone. -1.0 and 1.0 correspond to the two boundaries of that axis of the zone. The offsets are normalized against the actual width and depth of the zone, so they do not imply equal physical distances when the zone is rectangular. If this object is absent, both offsets are implicitly 0.0. These coordinates are spatially meaningful, not merely cosmetic: they establish the player's exact position within the canonical zone geometry. A movement into a new zone resets unspecified offsets to 0.0; a movement may explicitly supply destination_position to preserve or change an offset.",
             "additionalProperties": false,
             "properties": {
                 "lane_offset": {
                     "type": "number",
                     "title": "Lane Offset",
-                    "description": "Lateral position within the zone. Negative values move toward the left side of the zone and positive values move toward the right side.",
+                    "description": "Lateral position within the zone. Negative values move toward the attacking team's left side; positive values move toward its right side. The frame of reference is the attacking team facing the goal it is attacking, independent of how the renderer displays the pitch.",
                     "minimum": -1.0,
                     "maximum": 1.0
                 },
                 "depth_offset": {
                     "type": "number",
                     "title": "Depth Offset",
-                    "description": "Position along the attacking direction within the zone. Negative values move toward the defending goal and positive values move toward the attacking goal.",
+                    "description": "Position along the attacking direction within the zone. Negative values move toward the attacking team's own goal; positive values move toward the goal being attacked.",
                     "minimum": -1.0,
                     "maximum": 1.0
                 }
@@ -168,20 +170,28 @@
         },
         "game_state": {
             "type": "object",
+            "description": "World state at the beginning of the scenario. Player positions then persist through the event stream. Consumers must maintain the resulting state after every event.",
             "required": [
                 "ball_owner",
                 "ball_zone",
+                "ball_state",
                 "defensive_block"
             ],
             "additionalProperties": false,
             "properties": {
                 "ball_owner": {
-                    "type": "string",
+                    "type": [
+                        "string",
+                        "null"
+                    ],
                     "title": "Ball Owner",
-                    "description": "Player currently in possession."
+                    "description": "Player currently controlling the ball. Required when ball_state is CONTROLLED and null when ball_state is LOOSE. A controlled ball must be located in the owner's current position/zone; ball_zone is not an independent authoritative position for a controlled ball."
                 },
                 "ball_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "ball_state": {
+                    "$ref": "#/$defs/ball_state"
                 },
                 "defensive_block": {
                     "$ref": "#/$defs/defensive_block"
@@ -190,6 +200,7 @@
         },
         "defensive_block": {
             "type": "object",
+            "description": "Initial descriptive state of the defending team's defensive block. This object is an initial condition, not a continuously evolving state variable. Subsequent defensive movement is represented only by explicit events. A SHIFT does not implicitly change height, compactness, or pressure_level.",
             "required": [
                 "height",
                 "compactness",
@@ -239,16 +250,19 @@
                     "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Learner-safe phase label. This name may be displayed during playback and therefore must not explicitly name or reveal metadata.tactic or an unambiguous synonym for the answer."
                 },
                 "attacking_goal": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-readable description of the tactical goal of this phase. It is explanatory and is not load-bearing for animation or validation."
                 },
                 "expected_defensive_response": {
                     "$ref": "#/$defs/defensive_response"
                 },
                 "success_condition": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-readable description of the condition that constitutes success for the phase. It is explanatory and must not be parsed as machine-readable state."
                 }
             }
         },
@@ -258,19 +272,35 @@
                 "event_id",
                 "sequence",
                 "phase_id",
+                "start_time",
+                "duration",
                 "action",
                 "tactical_purpose"
             ],
             "additionalProperties": false,
             "properties": {
                 "event_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Unique identifier for this event within the scenario."
                 },
                 "sequence": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "1-based position of this event in the events array. Sequence is required to equal the event's array index plus one. It is not a time value and does not establish concurrency. Array order is authoritative."
                 },
                 "phase_id": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "ID of the phase to which this event belongs. It must reference a phase.id in plan.phases."
+                },
+                "start_time": {
+                    "type": "number",
+                    "minimum": 0,
+                    "description": "Event start time in seconds from the beginning of the scenario. This is the authoritative timing field. Events with equal start_time begin simultaneously; events whose intervals overlap are concurrent. There is no consumer-derived action timing."
+                },
+                "duration": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Event duration in seconds. The event occupies the half-open interval [start_time, start_time + duration). Player and ball movement is interpolated continuously throughout this interval unless the action description specifies a following behavior such as TRACK_RUNNER. A gap between events represents a period during which no encoded event occurs; it is not implicitly a tactical pause or ball-holding action."
                 },
                 "action": {
                     "$ref": "#/$defs/action"
@@ -280,18 +310,20 @@
                 },
                 "advantages_created": {
                     "type": "array",
+                    "description": "Structured advantages created when this event completes. These are machine-readable tactical annotations, not merely prose.",
                     "items": {
                         "$ref": "#/$defs/advantage"
                     }
                 },
                 "tactical_explanation": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-facing explanation of why the event matters tactically. It is post-play explanatory material, may name the tactic, and is never required for machine interpretation."
                 }
             }
         },
         "action": {
             "title": "Football Action",
-            "description": "Strongly typed football action.",
+            "description": "Strongly typed football action. Every action that changes a player's spatial state provides an explicit destination or a normative derivation rule. Player movement between explicit zones is rendered as continuous linear interpolation at constant speed over the event duration unless a tracking action specifies otherwise.",
             "oneOf": [
                 {
                     "$ref": "#/$defs/pass_action"
@@ -337,6 +369,9 @@
                 },
                 {
                     "$ref": "#/$defs/drop_action"
+                },
+                {
+                    "$ref": "#/$defs/turnover_action"
                 }
             ]
         },
@@ -347,7 +382,8 @@
                 "from_player",
                 "to_player",
                 "from_zone",
-                "to_zone"
+                "to_zone",
+                "trajectory"
             ],
             "additionalProperties": false,
             "properties": {
@@ -355,18 +391,24 @@
                     "const": "PASS"
                 },
                 "from_player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player making the pass. The player's current zone at event start must equal from_zone. Passing does not move the passer."
                 },
                 "to_player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Intended receiving player. The receiver must be at to_zone when the pass arrives. The receiver may move concurrently with the pass."
                 },
                 "from_zone": {
                     "$ref": "#/$defs/zone"
                 },
                 "to_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "trajectory": {
+                    "$ref": "#/$defs/pass_trajectory"
                 }
-            }
+            },
+            "description": "Successful controlled pass. The ball travels from the passer's current position toward the receiver's current/end position and possession transfers to to_player at event completion. Neither player is moved by the PASS action itself."
         },
         "dribble_action": {
             "type": "object",
@@ -389,8 +431,12 @@
                 },
                 "to_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "Ball-carrying movement by player. The player and ball move continuously from the player's current position in from_zone to the destination represented by to_zone and optional to_position. If to_position is absent, the destination is the center of to_zone. The player retains possession throughout the action and at completion."
         },
         "move_action": {
             "type": "object",
@@ -413,8 +459,12 @@
                 },
                 "to_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "Deliberate player repositioning without an implied sprint or ball interaction. The player moves continuously from the current position in from_zone to to_zone. If to_position is absent, the destination is the center of to_zone. MOVE does not change ball possession."
         },
         "run_action": {
             "type": "object",
@@ -437,15 +487,20 @@
                 },
                 "to_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "Off-ball running movement. The player moves continuously from the current position in from_zone to to_zone. If to_position is absent, the destination is the center of to_zone. RUN differs from MOVE only in tactical semantics: RUN denotes an intentional off-ball run/penetration rather than generic repositioning. Duration determines its speed."
         },
         "overlap_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "runner",
-                "outside_player"
+                "outside_player",
+                "to_zone"
             ],
             "additionalProperties": false,
             "properties": {
@@ -453,19 +508,29 @@
                     "const": "OVERLAP"
                 },
                 "runner": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player making the overlapping run."
                 },
                 "outside_player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player outside whom the runner passes."
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "An outside run by runner relative to outside_player. At event start, runner begins at their persistent current position. At event completion, runner occupies to_zone/to_position. to_zone must be laterally outside outside_player's starting lane from the attacking team's perspective and must represent the intended forward progression; the explicit destination determines how far the overlap travels. outside_player does not exchange positions with runner unless another concurrent or subsequent event explicitly moves outside_player."
         },
         "underlap_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "runner",
-                "outside_player"
+                "outside_player",
+                "to_zone"
             ],
             "additionalProperties": false,
             "properties": {
@@ -473,18 +538,28 @@
                     "const": "UNDERLAP"
                 },
                 "runner": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player making the underlapping run."
                 },
                 "outside_player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player whose inside/halfspace lane the runner enters."
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "An inside run by runner relative to outside_player. At event start, runner begins at their persistent current position. At completion, runner occupies to_zone/to_position. to_zone must be laterally inside outside_player's starting lane from the attacking team's perspective and must represent the intended forward progression. outside_player does not exchange positions with runner unless another event explicitly moves them."
         },
         "check_to_ball_action": {
             "type": "object",
             "required": [
                 "action_type",
-                "player"
+                "player",
+                "to_zone"
             ],
             "additionalProperties": false,
             "properties": {
@@ -493,14 +568,22 @@
                 },
                 "player": {
                     "type": "string"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "A single movement toward the ball's current position at event start. to_zone must equal the ball's zone at event start. If to_position is absent, the player finishes at the center of that zone. CHECK_TO_BALL does not imply a preceding move-away action or a subsequent return; such a double movement must be encoded as separate events."
         },
         "third_man_run_action": {
             "type": "object",
             "required": [
                 "action_type",
-                "runner"
+                "runner",
+                "to_zone"
             ],
             "additionalProperties": false,
             "properties": {
@@ -509,15 +592,24 @@
                 },
                 "runner": {
                     "type": "string"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "Off-ball run by the third player in a three-player combination. The runner moves from their persistent current position to to_zone/to_position. The third-man relationship is established by the surrounding event sequence: the runner is the third player involved in the combination rather than the immediate receiver of the initial pass. The destination is explicitly encoded and must not be inferred by a renderer."
         },
         "cross_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "from_player",
-                "target_zone"
+                "target_zone",
+                "trajectory",
+                "result"
             ],
             "additionalProperties": false,
             "properties": {
@@ -529,15 +621,27 @@
                 },
                 "target_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "target_player": {
+                    "type": "string"
+                },
+                "trajectory": {
+                    "$ref": "#/$defs/cross_trajectory"
+                },
+                "result": {
+                    "$ref": "#/$defs/cross_result"
                 }
-            }
+            },
+            "description": "Ball played from the wide/crossing player toward target_zone. target_player identifies the intended teammate when one is specified; it is required when result is RECEIVED and forbidden from being interpreted as an automatic reception otherwise. CROSS does not move the crossing player. Unless result is RECEIVED, the ball becomes LOOSE at the target zone or leaves play as specified by result."
         },
         "shot_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "player",
-                "shot_zone"
+                "shot_zone",
+                "trajectory",
+                "result"
             ],
             "additionalProperties": false,
             "properties": {
@@ -549,15 +653,23 @@
                 },
                 "shot_zone": {
                     "$ref": "#/$defs/zone"
+                },
+                "trajectory": {
+                    "$ref": "#/$defs/shot_trajectory"
+                },
+                "result": {
+                    "$ref": "#/$defs/shot_result"
                 }
-            }
+            },
+            "description": "Shot taken by player. shot_zone is the zone from which the shot is taken, not the intended target location of the shot. The result explicitly determines whether the scenario ends, whether the ball remains loose, or whether possession changes."
         },
         "press_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "player",
-                "target_player"
+                "target_player",
+                "pressing_distance"
             ],
             "additionalProperties": false,
             "properties": {
@@ -565,18 +677,27 @@
                     "const": "PRESS"
                 },
                 "player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Defending player applying pressure."
                 },
                 "target_player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Player being pressed."
+                },
+                "pressing_distance": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Normalized pitch-distance from the target player at the end of the press. 1.0 equals the full pitch length. The presser approaches the target and finishes pressing_distance away from the target along the line from the presser's starting position toward the target. This prevents the renderer from having to invent a stopping distance."
                 }
-            }
+            },
+            "description": "Defensive pressure applied to target_player. The presser moves toward the target but does not arrive at or overlap the target. The target's position is unchanged unless another explicit event moves them."
         },
         "shift_action": {
             "type": "object",
             "required": [
                 "action_type",
-                "direction"
+                "direction",
+                "distance"
             ],
             "additionalProperties": false,
             "properties": {
@@ -589,16 +710,24 @@
                         "RIGHT",
                         "FORWARD",
                         "BACKWARD"
-                    ]
+                    ],
+                    "description": "Direction relative to the attacking team's perspective. LEFT and RIGHT are lateral from the attacking team facing its attacking goal. FORWARD means toward the goal being attacked; BACKWARD means toward the attacking team's own goal."
+                },
+                "distance": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Normalized translation magnitude. For LEFT/RIGHT, 1.0 equals the full pitch width; for FORWARD/BACKWARD, 1.0 equals the full pitch length."
                 }
-            }
+            },
+            "description": "Collective rigid movement of the defending team's outfield defensive block. Every non-GK player of defending_team is translated by the same vector and therefore maintains their relative spacing. The goalkeeper is not included. SHIFT cannot represent deformation of the block; use explicit MOVE/RUN actions for individual deviations. SHIFT changes player positions only and never implicitly changes defensive_block.height, compactness, or pressure_level."
         },
         "mark_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "defender",
-                "attacker"
+                "attacker",
+                "goal_side_distance"
             ],
             "additionalProperties": false,
             "properties": {
@@ -610,15 +739,22 @@
                 },
                 "attacker": {
                     "type": "string"
+                },
+                "goal_side_distance": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Normalized pitch-distance between defender and attacker at the end of the marking action. 1.0 equals the full pitch length. The defender takes a position goal-side of the attacker, where goal-side means toward the defending team's own goal."
                 }
-            }
+            },
+            "description": "Defender establishes goal-side marking position relative to attacker. The defender's endpoint is derived from the attacker's current position and goal-side direction using goal_side_distance. The attacker does not move unless another explicit event moves them."
         },
         "track_runner_action": {
             "type": "object",
             "required": [
                 "action_type",
                 "defender",
-                "runner"
+                "runner",
+                "tracking_distance"
             ],
             "additionalProperties": false,
             "properties": {
@@ -630,14 +766,21 @@
                 },
                 "runner": {
                     "type": "string"
+                },
+                "tracking_distance": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "description": "Normalized pitch-distance maintained between defender and runner while tracking. 1.0 equals the full pitch length."
                 }
-            }
+            },
+            "description": "Continuous defensive behavior lasting for the event duration. The defender continuously follows the runner's interpolated position while maintaining tracking_distance, rather than performing a one-time move. If the runner does not move during the interval, the defender remains at the corresponding tracking position. The runner's movement is authoritative; TRACK_RUNNER never moves the runner."
         },
         "drop_action": {
             "type": "object",
             "required": [
                 "action_type",
-                "player"
+                "player",
+                "to_zone"
             ],
             "additionalProperties": false,
             "properties": {
@@ -646,11 +789,44 @@
                 },
                 "player": {
                     "type": "string"
+                },
+                "to_zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "to_position": {
+                    "$ref": "#/$defs/zone_position"
                 }
-            }
+            },
+            "description": "Defensive retreat by player toward the defending team's own goal. to_zone explicitly determines how far the player drops. If to_position is absent, the destination is the center of to_zone."
+        },
+        "turnover_action": {
+            "type": "object",
+            "required": [
+                "action_type",
+                "winning_team",
+                "zone"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "action_type": {
+                    "const": "TURNOVER"
+                },
+                "winning_team": {
+                    "$ref": "#/$defs/team_type"
+                },
+                "zone": {
+                    "$ref": "#/$defs/zone"
+                },
+                "winner": {
+                    "type": "string",
+                    "description": "Optional player who wins/recovers possession. If supplied, this player becomes ball_owner when the turnover completes."
+                }
+            },
+            "description": "Explicit change of possession without requiring an intervening pass, shot, or cross. This action is used for interceptions, tackles, loose-ball recoveries, and other turnovers. It is the canonical mechanism for representing the possession change that begins a counter-attack or counter-press. If winner is omitted, the ball becomes LOOSE in zone until a later action establishes possession."
         },
         "tactic": {
             "type": "string",
+            "description": "The single primary tactical classification of the scenario. This is the one answer the learner is expected to identify. Supporting mechanisms may occur in the event stream but do not constitute additional answers. The enum declaration order has no semantic meaning for tactics.",
             "enum": [
                 "SWITCH_PLAY",
                 "OVERLAP",
@@ -668,6 +844,7 @@
         },
         "difficulty": {
             "type": "string",
+            "description": "Difficulty measures the difficulty of correctly recognizing the primary tactic from the scenario's observable structured sequence, not merely the number of players, number of events, or execution complexity. Levels are calibrated across tactics and therefore are comparable between tactics. Enum declaration order is normative and defines ascending difficulty: LEVEL1_NOVICE < LEVEL2_BEGINNER < LEVEL3_INTERMEDIATE < LEVEL4_ADVANCED < LEVEL5_EXPERT. The corpus is not required to contain every tactic/difficulty combination; absence of a combination is a corpus coverage gap, not evidence that the level does not exist.",
             "enum": [
                 "LEVEL1_NOVICE",
                 "LEVEL2_BEGINNER",
@@ -678,6 +855,7 @@
         },
         "play_direction": {
             "type": "string",
+            "description": "Presentation orientation only. It does not change the semantics of DEF/MID/ATT, LEFT/RIGHT, zone_position offsets, or action directions. All tactical spatial semantics use the attacking team's perspective: the attacking team faces its attacking goal, FORWARD points toward that goal, LEFT is the attacking team's left, and RIGHT is its right. A renderer may freely normalize every scenario to one canonical screen orientation and use play_direction only when preserving the authored visual orientation is desired.",
             "enum": [
                 "BOTTOM_TO_TOP",
                 "TOP_TO_BOTTOM",
@@ -687,6 +865,7 @@
         },
         "team_type": {
             "type": "string",
+            "description": "ATTACK refers to attacking_team; DEFEND refers to defending_team. These names identify the two fixed scenario roles, not necessarily who possesses the ball at every instant. A counter-attack may begin with defending_team winning a turnover.",
             "enum": [
                 "ATTACK",
                 "DEFEND"
@@ -717,6 +896,7 @@
         },
         "zone": {
             "type": "string",
+            "description": "Canonical pitch zones. All zone geometry is defined in normalized pitch coordinates from the attacking team's perspective. Let x=0 be the attacking team's left touchline and x=1 its right touchline. Let y=0 be the attacking team's own goal line and y=1 the goal line it is attacking. Thus increasing y is always FORWARD. The ordinary field is divided into three equal-depth bands: DEF is y=[0, 1/3], MID is y=[1/3, 2/3], and ATT is y=[2/3, 1]. The ordinary grid has eleven equal-width lanes, each width 1/11. From left to right those lanes are: outermost lane [0,1/11], LEFT_WING [1/11,2/11], LEFT_HALFSPACE [2/11,3/11], LEFT_CHANNEL [3/11,4/11], CENTER_LEFT [4/11,5/11], CENTER [5/11,6/11], CENTER_RIGHT [6/11,7/11], RIGHT_CHANNEL [7/11,8/11], RIGHT_HALFSPACE [8/11,9/11], RIGHT_WING [9/11,10/11], outermost lane [10/11,1]. DEF_LEFT_CORNER and DEF_RIGHT_CORNER therefore mean the outermost lanes of the defensive third; CORNER does not mean a special point or irregular corner-shaped region. MID_LEFT_TOUCHLINE and MID_RIGHT_TOUCHLINE are the same outermost lanes at normal middle-third depth. ATT_LEFT_CORNER and ATT_RIGHT_CORNER are likewise the outermost lanes of the attacking third. The five box zones are an overlay on the attacking third, not replacements for the ATT grid: the penalty area is x=[18/68,50/68] and y=[87/105,1]; LEFT_BOX is its left third, x=[18/68, (18/68+1/2)/2], CENTER_BOX is its central third, x=[(18/68+1/2)/2, (1/2+50/68)/2], and RIGHT_BOX is its right third, x=[(1/2+50/68)/2,50/68]. Equivalently, the three box zones divide the penalty area into three equal-width vertical regions. CENTER_BOX is inside the penalty area; ATT_ZONE14 is outside the penalty area and overlaps it only conceptually as part of the coarse attacking-third grid. SIX_YARD_BOX is the central six-yard box overlay, x=[22/68,46/68], y=[99/105,1]. PENALTY_SPOT is a point rather than an area, at x=1/2, y=94/105; for purposes of zone_position it is treated as a zero-area anchor and offsets should normally be omitted. There is intentionally no defensive-third equivalent of the box overlay. The geometry is canonical normalized geometry, not a claim about a particular physical pitch's exact dimensions.",
             "enum": [
                 "DEF_LEFT_CORNER",
                 "DEF_LEFT_WING",
@@ -760,6 +940,7 @@
         },
         "tactical_purpose": {
             "type": "string",
+            "description": "The local tactical purpose of an individual event. This is not the scenario's classification and does not have to equal metadata.tactic. Shared names between this enum and tactic have related ordinary football meanings but are intentionally distinct concepts: tactic identifies the scenario-level teaching target; tactical_purpose identifies why an individual event occurs.",
             "enum": [
                 "CREATE_WIDTH",
                 "ATTRACT_PRESSURE",
@@ -792,6 +973,7 @@
         },
         "defensive_response": {
             "type": "string",
+            "description": "Descriptive expectation for how the defending block should respond during the phase. This is coaching metadata, not an implicit movement command. If the response must be visible in the animation, it must also be represented by an explicit defensive action event.",
             "enum": [
                 "SHIFT_LEFT",
                 "SHIFT_RIGHT",
@@ -838,7 +1020,8 @@
                     "$ref": "#/$defs/outcome_type"
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-facing explanation of the guaranteed end-state assertion. It is not load-bearing."
                 }
             }
         },
@@ -853,13 +1036,16 @@
                     "$ref": "#/$defs/advantage_type"
                 },
                 "zone": {
-                    "$ref": "#/$defs/zone"
+                    "$ref": "#/$defs/zone",
+                    "description": "Specific zone to which the advantage applies. If omitted, the advantage has no specific spatial locus and must not be rendered as belonging to the current ball zone or any player's zone by default."
                 },
                 "player": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Specific player who benefits from the advantage. If omitted, the advantage is not attributed to a particular player."
                 },
                 "description": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-facing explanation. It is not load-bearing."
                 }
             }
         },
@@ -885,6 +1071,64 @@
                 "LOW",
                 "MEDIUM",
                 "HIGH"
+            ]
+        },
+        "ball_state": {
+            "type": "string",
+            "description": "Ball possession state. CONTROLLED means a player owns the ball. LOOSE means no player owns it. An in-flight ball is represented only during a PASS, CROSS, or SHOT event and does not constitute a persistent state between events.",
+            "enum": [
+                "CONTROLLED",
+                "LOOSE"
+            ]
+        },
+        "pass_trajectory": {
+            "type": "string",
+            "description": "Ball-flight mode for a normal pass. This is a visual/physical semantic property and must not be invented by a renderer.",
+            "enum": [
+                "GROUND",
+                "DRIVEN",
+                "LOFTED"
+            ]
+        },
+        "cross_trajectory": {
+            "type": "string",
+            "description": "Ball-flight mode for a cross.",
+            "enum": [
+                "DRIVEN_CROSS",
+                "LOFTED_CROSS"
+            ]
+        },
+        "shot_trajectory": {
+            "type": "string",
+            "description": "Ball-flight mode for a shot.",
+            "enum": [
+                "GROUND",
+                "LOW_AERIAL",
+                "HIGH_AERIAL"
+            ]
+        },
+        "cross_result": {
+            "type": "string",
+            "description": "Result of the cross. RECEIVED transfers possession to target_player. DEFENDED and LOOSE leave the ball uncontrolled at the target area. OUT_OF_PLAY ends the scenario.",
+            "enum": [
+                "RECEIVED",
+                "DEFENDED",
+                "LOOSE",
+                "OUT_OF_PLAY"
+            ]
+        },
+        "shot_result": {
+            "type": "string",
+            "description": "Result of the shot. GOAL and OUT_OF_PLAY are terminal and must be the final event. SAVED, BLOCKED, POST, and DEFLECTED leave the ball potentially recoverable; LOOSE explicitly leaves it uncontrolled. A later TURNOVER may establish possession following a loose/deflected ball.",
+            "enum": [
+                "GOAL",
+                "SAVED",
+                "BLOCKED",
+                "POST",
+                "DEFLECTED",
+                "OFF_TARGET",
+                "OUT_OF_PLAY",
+                "LOOSE"
             ]
         }
     }
