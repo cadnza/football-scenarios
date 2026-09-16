@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-from typing import Optional, cast
+from typing import Any, Optional, TypedDict, cast
 
 from libs.scenario_g import (
     BallState,
@@ -8,6 +8,7 @@ from libs.scenario_g import (
     CrossAction,
     DribbleAction,
     DropAction,
+    Event,
     FootballTacticalScenario,
     MarkAction,
     MoveAction,
@@ -32,41 +33,96 @@ from libs.scenario_g import (
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import math
+from collections import Counter
 
 # === Realism configuration (normalized units per second over a 1x1 pitch) ===
 _MAX_SPEED_NORM = 0.25  # threshold for individual movement realism (tune to taste)
 _MAX_SHIFT_SPEED_NORM = 0.20  # threshold for rigid defensive block SHIFT realism
 
 
+class _ErrCtx(TypedDict, total=False):
+    """A context object for error messages."""
+
+    event_index: int
+    event_id: str
+    phase_id: str
+    action: str | Any
+    start: float
+    end: float
+    duration: float
+
+
 def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /) -> int:  # noqa: C901, PLR0912, PLR0915
-    """Semantically validate a scenario."""
+    """Semantically validate a scenario with context-rich, actionable error messages."""
     errors = 0
 
-    def err(msg: str) -> None:
+    def err(msg: str, *, ctx: _ErrCtx | None = None) -> None:
+        """Emit a structured error message with optional event context."""
         nonlocal errors
         errors += 1
-        sys.stderr.write(f"VALUE ERR {path}:\n")
+        title = getattr(getattr(data, "metadata", None), "title", "UNKNOWN")
+        sys.stderr.write(f"VALUE ERR {path} (Scenario='{title}'):\n")
+        if ctx is not None:
+            # Expected keys in ctx: event_index, event_id, phase_id, action, start, end, duration
+            ei = ctx.get("event_index", "?")
+            eid = ctx.get("event_id", "?")
+            ph = ctx.get("phase_id", "?")
+            act = ctx.get("action", "?")
+            st = ctx.get("start", "?")
+            en = ctx.get("end", "?")
+            du = ctx.get("duration", "?")
+            sys.stderr.write(
+                f"   [Event #{ei} id='{eid}' phase='{ph}' action='{act}' t={st}–{en} dur={du}s]\n",
+            )
         sys.stderr.write(f"   - {msg}\n")
 
+    def fmt_zone(z: Optional["Zone"]) -> str:
+        return z.name if isinstance(z, Zone) else str(z)
+
     # --- Build team/player indices ---
-    atk_ids: set[str] = {p.id for p in data.attacking_team.players}  # pyright: ignore[reportUnknownMemberType]
-    def_ids: set[str] = {p.id for p in data.defending_team.players}  # pyright: ignore[reportUnknownMemberType]
+    atk_ids_list: list[str] = [p.id for p in data.attacking_team.players]  # pyright: ignore[reportUnknownMemberType]
+    def_ids_list: list[str] = [p.id for p in data.defending_team.players]  # pyright: ignore[reportUnknownMemberType]
+    atk_ids: set[str] = set(atk_ids_list)
+    def_ids: set[str] = set(def_ids_list)
     all_ids: set[str] = atk_ids | def_ids
 
-    # Global uniqueness across teams
-    if len(atk_ids) + len(def_ids) != len(all_ids):
-        err("Player IDs must be globally unique across attacking and defending teams")
+    # Per-team duplicate checks
+    atk_dups = [pid for pid, c in Counter(atk_ids_list).items() if c > 1]
+    def_dups = [pid for pid, c in Counter(def_ids_list).items() if c > 1]
+    if atk_dups:
+        err(
+            "Attacking team has duplicate player IDs: "
+            + ", ".join(sorted(atk_dups))
+            + ". Suggested fix: ensure each Player.id in attacking_team.players is unique (e.g., append role or shirt number).",
+        )
+    if def_dups:
+        err(
+            "Defending team has duplicate player IDs: "
+            + ", ".join(sorted(def_dups))
+            + ". Suggested fix: ensure each Player.id in defending_team.players is unique (e.g., append role or shirt number).",
+        )
+
+    # Cross-team global uniqueness
+    cross_dups = atk_ids & def_ids
+    if cross_dups:
+        err(
+            "Player IDs must be globally unique across both teams; duplicates found across teams: "
+            + ", ".join(sorted(cross_dups))
+            + ". Suggested fix: rename one side's duplicate IDs.",
+        )
 
     # GK presence advisory (keep or remove based on policy)
     atk_has_gk = any(p.role == Role.GK for p in data.attacking_team.players)
     def_has_gk = any(p.role == Role.GK for p in data.defending_team.players)
     if not atk_has_gk:
         err(
-            "Attacking team has no GK; ensure this is intentional for a training scenario",
+            f"Attacking team has no GK; ensure this is intentional for a training scenario (team='{data.attacking_team.name}'). "
+            "Suggested fix: add a Player with role=GK to attacking_team.players, or acknowledge omission in docs.",
         )
     if not def_has_gk:
         err(
-            "Defending team has no GK; ensure this is intentional for a training scenario",
+            f"Defending team has no GK; ensure this is intentional for a training scenario (team='{data.defending_team.name}'). "
+            "Suggested fix: add a Player with role=GK to defending_team.players, or acknowledge omission in docs.",
         )
 
     # --- Canonical geometry per schema (normalized pitch) ---
@@ -177,8 +233,8 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
         cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
         if pos is None or z == Zone.PENALTY_SPOT:
             return (cx, cy)
-        lane_offset = cast("int | None", pos.lane_offset)  # pyright: ignore[reportUnknownMemberType]
-        depth_offset = cast("int | None", pos.depth_offset)  # pyright: ignore[reportUnknownMemberType]
+        lane_offset = cast("float | None", pos.lane_offset)  # pyright: ignore[reportUnknownMemberType]
+        depth_offset = cast("float | None", pos.depth_offset)  # pyright: ignore[reportUnknownMemberType]
         lx = lane_offset if lane_offset is not None else 0.0
         ly = depth_offset if depth_offset is not None else 0.0
         x = cx + lx * (x1 - x0) / 2.0
@@ -227,24 +283,53 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
     # Ball owner invariants
     if ball_state == BallState.CONTROLLED:
         if ball_owner is None:
-            err("Ball owner must be present when ball_state is CONTROLLED")
+            err(
+                "Ball owner must be present when ball_state=CONTROLLED (found ball_owner=None). Suggested fix: set initial_state.ball_owner to the controlling player's ID.",
+            )
         elif ball_owner not in all_ids:
-            err("Ball owner must be a known player ID on either team")
+            err(
+                f"Ball owner must be a known player ID on either team (found '{ball_owner}'). Known IDs={sorted(all_ids)}. "
+                "Suggested fix: change initial_state.ball_owner to a valid Player.id.",
+            )
         elif player_zone.get(ball_owner) != ball_zone:
             err(
-                "Initial ball_zone must equal ball owner's current zone when ball_state is CONTROLLED",
+                "Initial ball_zone must equal ball owner's current zone when ball_state=CONTROLLED "
+                f"(owner='{ball_owner}', owner_zone='{fmt_zone(player_zone.get(ball_owner))}', ball_zone='{ball_zone.name}'). "
+                "Suggested fix: set initial_state.ball_zone to the owner's current zone, or adjust the owner's starting_zone.",
             )
     elif ball_owner is not None:
-        err("Ball owner must be null when ball_state is LOOSE")
+        err(
+            f"Ball owner must be null when ball_state=LOOSE (found ball_owner='{ball_owner}'). "
+            "Suggested fix: set initial_state.ball_owner=None or set ball_state=CONTROLLED.",
+        )
 
     # --- Phases & timeline ---
     phase_ids: set[str] = {ph.id for ph in data.plan.phases}  # pyright: ignore[reportUnknownMemberType]
     for i, ev in enumerate(data.events):
+        ev_start = float(ev.start_time)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+        ev_end = ev_start + float(ev.duration)
+        act = ev.action.root
+        act_label = getattr(act, "action_type", type(act).__name__)
+        ctx_base: _ErrCtx = {
+            "event_index": i,
+            "event_id": ev.event_id,
+            "phase_id": ev.phase_id,
+            "action": act_label,
+            "start": ev_start,
+            "end": ev_end,
+            "duration": float(ev.duration),
+        }
         if ev.sequence != (i + 1):  # pyright: ignore[reportUnknownMemberType]
-            err(f"Event[{i}] sequence must equal {i + 1}")
+            err(
+                f"event.sequence must equal its 1-based array position (expected {i + 1}, found {ev.sequence}) for event_id='{ev.event_id}'. "  # pyright: ignore[reportUnknownMemberType]
+                f"Suggested fix: set event.sequence={i + 1}.",
+                ctx=ctx_base,
+            )
         if ev.phase_id not in phase_ids:
             err(
-                f"Event[{i}] phase_id='{ev.phase_id}' must reference an existing plan.phases.id",
+                f"event.phase_id must reference an existing plan.phases.id (found '{ev.phase_id}'; known={sorted(phase_ids)}). "
+                f"Suggested fix: change event.phase_id to one of {sorted(phase_ids)}.",
+                ctx=ctx_base,
             )
 
     # --- Concurrency checks ---
@@ -257,7 +342,15 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
         # half-open [start, end)
         return (a[0] < b[1]) and (b[0] < a[1])
 
-    def reg(pid: str, action_type: str, start: float, end: float) -> None:
+    def reg(
+        pid: str,
+        action_type: str,
+        start: float,
+        end: float,
+        *,
+        ev: Optional["Event"] = None,
+        idx: int | None = None,
+    ) -> None:
         rng = (start, end)
         for other in active_intervals.get(pid, []):
             if overlaps(rng, (other[0], other[1])) and other[2] in (
@@ -272,8 +365,25 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                 "MARK",
                 "PRESS",
             ):
+                # Suggest moving this start to the end of the overlapping interval
+                suggested_start = max(start, other[1])
+                suggested_duration = max(0.01, end - suggested_start)
                 err(
-                    f"Event overlap: {action_type} overlaps with {other[2]} for player '{pid}'",
+                    f"Action overlap for player '{pid}': '{action_type}' interval [{start:.3f}, {end:.3f}) "
+                    f"overlaps '{other[2]}' interval [{other:.3f}, {other:.3f}). Players cannot perform overlapping movement/pressure/marking actions. "
+                    f"Suggested fix: set start_time to ≥ {other:.3f} (e.g., {suggested_start:.3f}) or reduce duration; "
+                    f"if moved, new duration could be ≈ {suggested_duration:.3f}s.",
+                    ctx=None
+                    if ev is None or idx is None
+                    else {
+                        "event_index": idx,
+                        "event_id": ev.event_id,
+                        "phase_id": ev.phase_id,
+                        "action": action_type,
+                        "start": float(start),
+                        "end": float(end),
+                        "duration": float(end - start),
+                    },
                 )
                 break
         active_intervals[pid].append((start, end, action_type))
@@ -287,6 +397,7 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
         duration: float,
         label: str,
         idx: int,
+        ev: "Event",
     ) -> None:
         if duration <= 0:
             return
@@ -295,32 +406,78 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
         dist = math.hypot(dx, dy)  # normalized units over 1x1 pitch
         speed = dist / duration
         if speed > _MAX_SPEED_NORM:
+            min_duration = dist / _MAX_SPEED_NORM if _MAX_SPEED_NORM > 0 else duration
             err(
-                f"Event[{idx}] {label}: unrealistic speed {speed:.3f} > {_MAX_SPEED_NORM:.3f} for player '{pid}'",
+                f"Unrealistic {label} speed for player '{pid}': distance={dist:.3f}, duration={duration:.3f}s, "
+                f"speed={speed:.3f} > threshold= {_MAX_SPEED_NORM:.3f}. "
+                f"Start=({start_pt:.3f},{start_pt:.3f}) -> End=({end_pt:.3f},{end_pt:.3f}). "
+                f"Suggested fix: increase duration to ≥ {min_duration:.3f}s or reduce the travel distance.",
+                ctx={
+                    "event_index": idx,
+                    "event_id": ev.event_id,
+                    "phase_id": ev.phase_id,
+                    "action": label,
+                    "start": float(ev.start_time),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                    "end": float(ev.start_time + ev.duration),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                    "duration": float(ev.duration),
+                },
             )
 
-    def check_player(pid: str, label: str, i: int) -> None:
+    def check_player(pid: str, label: str, i: int, ev: "Event") -> None:
         if pid not in all_ids:
-            err(f"Event[{i}] references unknown player '{pid}' in {label}")
+            err(
+                f"{label}: unknown player id '{pid}'. Known attacking={sorted(atk_ids)}; defending={sorted(def_ids)}. "
+                "Suggested fix: change the field to a valid Player.id or add the player to the appropriate team.",
+                ctx={
+                    "event_index": i,
+                    "event_id": ev.event_id,
+                    "phase_id": ev.phase_id,
+                    "action": getattr(
+                        ev.action.root,
+                        "action_type",
+                        type(ev.action.root).__name__,
+                    ),
+                    "start": float(ev.start_time),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                    "end": float(ev.start_time + ev.duration),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                    "duration": float(ev.duration),
+                },
+            )
 
     # --- Event loop ---
     for i, ev in enumerate(data.events):
-        start = cast("int", ev.start_time)  # pyright: ignore[reportUnknownMemberType]
-        end = start + ev.duration
+        start = float(ev.start_time)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        end = start + float(ev.duration)
         act = ev.action.root
+        act_label = getattr(act, "action_type", type(act).__name__)
+
+        ctx_base = {
+            "event_index": i,
+            "event_id": ev.event_id,
+            "phase_id": ev.phase_id,
+            "action": act_label,
+            "start": start,
+            "end": end,
+            "duration": float(ev.duration),
+        }
 
         match act:
             # Action handlers (semantic + realism)
             case PassAction():
-                check_player(act.from_player, "PASS.from_player", i)
-                check_player(act.to_player, "PASS.to_player", i)
+                check_player(act.from_player, "PASS.from_player", i, ev)
+                check_player(act.to_player, "PASS.to_player", i, ev)
                 if ball_state != BallState.CONTROLLED or ball_owner != act.from_player:
                     err(
-                        f"Event[{i}] PASS requires controlled ball by from_player '{act.from_player}' at start",
+                        "PASS requires the ball to be controlled by the passer at event start. "
+                        f"Found ball_state='{ball_state.name}', ball_owner='{ball_owner}', expected owner='{act.from_player}'. "
+                        "Suggested fix: add/adjust prior events so the passer controls the ball at this start_time.",
+                        ctx=ctx_base,
                     )
                 if player_zone.get(act.from_player) != act.from_zone:
                     err(
-                        f"Event[{i}] PASS.from_zone must equal passer '{act.from_player}' current zone at start",
+                        "PASS.from_zone must equal passer's current zone at start. "
+                        f"Passer='{act.from_player}', from_zone='{act.from_zone.name}', current_zone='{fmt_zone(player_zone.get(act.from_player))}'. "
+                        "Suggested fix: set PASS.from_zone to the passer's current zone or add a preceding MOVE/DRIBBLE to place the passer there.",
+                        ctx=ctx_base,
                     )
                 # PASS does not move players
                 ball_owner = act.to_player
@@ -328,14 +485,20 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                 ball_state = BallState.CONTROLLED
 
             case DribbleAction():
-                check_player(act.player, "DRIBBLE.player", i)
+                check_player(act.player, "DRIBBLE.player", i, ev)
                 if ball_state != BallState.CONTROLLED or ball_owner != act.player:
                     err(
-                        f"Event[{i}] DRIBBLE requires controlled ball by '{act.player}' at start",
+                        "DRIBBLE requires the ball to be controlled by the dribbler at event start. "
+                        f"Found ball_state='{ball_state.name}', ball_owner='{ball_owner}', expected owner='{act.player}'. "
+                        "Suggested fix: add/adjust prior events so this player controls the ball at start_time.",
+                        ctx=ctx_base,
                     )
                 if player_zone.get(act.player) != act.from_zone:
                     err(
-                        f"Event[{i}] DRIBBLE.from_zone must equal player's current zone at start",
+                        "DRIBBLE.from_zone must equal player's current zone at start. "
+                        f"Player='{act.player}', from_zone='{act.from_zone.name}', current_zone='{fmt_zone(player_zone.get(act.player))}'. "
+                        "Suggested fix: set DRIBBLE.from_zone to the player's current zone or add a preceding MOVE to put them in from_zone.",
+                        ctx=ctx_base,
                     )
                 start_pt = player_pos[act.player]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -346,8 +509,9 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="DRIBBLE",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "DRIBBLE", start, end)
+                reg(act.player, "DRIBBLE", start, end, ev=ev, idx=i)
                 player_zone[act.player] = act.to_zone
                 player_pos[act.player] = end_pt
                 ball_owner = act.player
@@ -355,10 +519,13 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                 ball_state = BallState.CONTROLLED
 
             case MoveAction():
-                check_player(act.player, "MOVE.player", i)
+                check_player(act.player, "MOVE.player", i, ev)
                 if player_zone.get(act.player) != act.from_zone:
                     err(
-                        f"Event[{i}] MOVE.from_zone must equal player's current zone at start",
+                        "MOVE.from_zone must equal player's current zone at start. "
+                        f"Player='{act.player}', from_zone='{act.from_zone.name}', current_zone='{fmt_zone(player_zone.get(act.player))}'. "
+                        "Suggested fix: set MOVE.from_zone to the player's current zone or adjust prior events accordingly.",
+                        ctx=ctx_base,
                     )
                 start_pt = player_pos[act.player]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -369,16 +536,20 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="MOVE",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "MOVE", start, end)
+                reg(act.player, "MOVE", start, end, ev=ev, idx=i)
                 player_zone[act.player] = act.to_zone
                 player_pos[act.player] = end_pt
 
             case RunAction():
-                check_player(act.player, "RUN.player", i)
+                check_player(act.player, "RUN.player", i, ev)
                 if player_zone.get(act.player) != act.from_zone:
                     err(
-                        f"Event[{i}] RUN.from_zone must equal player's current zone at start",
+                        "RUN.from_zone must equal player's current zone at start. "
+                        f"Player='{act.player}', from_zone='{act.from_zone.name}', current_zone='{fmt_zone(player_zone.get(act.player))}'. "
+                        "Suggested fix: set RUN.from_zone to the player's current zone or add a preceding MOVE to place them there.",
+                        ctx=ctx_base,
                     )
                 start_pt = player_pos[act.player]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -389,23 +560,30 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="RUN",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "RUN", start, end)
+                reg(act.player, "RUN", start, end, ev=ev, idx=i)
                 player_zone[act.player] = act.to_zone
                 player_pos[act.player] = end_pt
 
             case OverlapAction():
-                check_player(act.runner, "OVERLAP.runner", i)
-                check_player(act.outside_player, "OVERLAP.outside_player", i)
+                check_player(act.runner, "OVERLAP.runner", i, ev)
+                check_player(act.outside_player, "OVERLAP.outside_player", i, ev)
                 ref_zone = player_zone.get(act.outside_player)
                 if ref_zone is None:
                     err(
-                        f"Event[{i}] OVERLAP requires outside_player '{act.outside_player}' to have a known zone",
+                        f"OVERLAP requires outside_player '{act.outside_player}' to have a known zone at event start. "
+                        "Suggested fix: ensure outside_player has been positioned in a prior event.",
+                        ctx=ctx_base,
                     )
                 else:
                     if not is_outside_relative(act.to_zone, ref_zone):
                         err(
-                            f"Event[{i}] OVERLAP.to_zone must be laterally outside relative to outside_player's lane",
+                            "OVERLAP.to_zone must be laterally outside relative to outside_player's lane. "
+                            f"outside_player='{act.outside_player}', outside_lane={lane_index.get(ref_zone, center_lane)}, "
+                            f"to_zone='{act.to_zone.name}', to_lane={lane_index.get(act.to_zone, center_lane)}. "
+                            "Suggested fix: choose a wider lane for to_zone than the outside_player's lane (relative to center).",
+                            ctx=ctx_base,
                         )
                     runner_from = player_zone.get(act.runner)
                     if runner_from and not is_forward_progress(
@@ -413,7 +591,10 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                         runner_from,
                     ):
                         err(
-                            f"Event[{i}] OVERLAP.to_zone should represent forward progression",
+                            "OVERLAP.to_zone should represent forward progression. "
+                            f"runner='{act.runner}', from_zone='{runner_from.name}', to_zone='{act.to_zone.name}'. "
+                            "Suggested fix: select an attacking-depth zone (MID/ATT) ahead of the runner's current band.",
+                            ctx=ctx_base,
                         )
                 start_pt = player_pos[act.runner]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -424,23 +605,30 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="OVERLAP",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.runner, "OVERLAP", start, end)
+                reg(act.runner, "OVERLAP", start, end, ev=ev, idx=i)
                 player_zone[act.runner] = act.to_zone
                 player_pos[act.runner] = end_pt
 
             case UnderlapAction():
-                check_player(act.runner, "UNDERLAP.runner", i)
-                check_player(act.outside_player, "UNDERLAP.outside_player", i)
+                check_player(act.runner, "UNDERLAP.runner", i, ev)
+                check_player(act.outside_player, "UNDERLAP.outside_player", i, ev)
                 ref_zone = player_zone.get(act.outside_player)
                 if ref_zone is None:
                     err(
-                        f"Event[{i}] UNDERLAP requires outside_player '{act.outside_player}' to have a known zone",
+                        f"UNDERLAP requires outside_player '{act.outside_player}' to have a known zone at event start. "
+                        "Suggested fix: ensure outside_player has been positioned in a prior event.",
+                        ctx=ctx_base,
                     )
                 else:
                     if not is_inside_relative(act.to_zone, ref_zone):
                         err(
-                            f"Event[{i}] UNDERLAP.to_zone must be laterally inside relative to outside_player's lane",
+                            "UNDERLAP.to_zone must be laterally inside relative to outside_player's lane. "
+                            f"outside_player='{act.outside_player}', outside_lane={lane_index.get(ref_zone, center_lane)}, "
+                            f"to_zone='{act.to_zone.name}', to_lane={lane_index.get(act.to_zone, center_lane)}. "
+                            "Suggested fix: choose a lane closer to center than the outside_player's lane.",
+                            ctx=ctx_base,
                         )
                     runner_from = player_zone.get(act.runner)
                     if runner_from and not is_forward_progress(
@@ -448,7 +636,10 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                         runner_from,
                     ):
                         err(
-                            f"Event[{i}] UNDERLAP.to_zone should represent forward progression",
+                            "UNDERLAP.to_zone should represent forward progression. "
+                            f"runner='{act.runner}', from_zone='{runner_from.name}', to_zone='{act.to_zone.name}'. "
+                            "Suggested fix: select an attacking-depth zone (MID/ATT) ahead of the runner's current band.",
+                            ctx=ctx_base,
                         )
                 start_pt = player_pos[act.runner]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -459,16 +650,20 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="UNDERLAP",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.runner, "UNDERLAP", start, end)
+                reg(act.runner, "UNDERLAP", start, end, ev=ev, idx=i)
                 player_zone[act.runner] = act.to_zone
                 player_pos[act.runner] = end_pt
 
             case CheckToBallAction():
-                check_player(act.player, "CHECK_TO_BALL.player", i)
+                check_player(act.player, "CHECK_TO_BALL.player", i, ev)
                 if act.to_zone != ball_zone:
                     err(
-                        f"Event[{i}] CHECK_TO_BALL.to_zone must equal the ball's zone at event start",
+                        "CHECK_TO_BALL.to_zone must equal the ball's zone at event start. "
+                        f"Player='{act.player}', to_zone='{act.to_zone.name}', ball_zone='{ball_zone.name}'. "
+                        "Suggested fix: set to_zone to the current ball_zone or retime this event to when the ball is in the desired zone.",
+                        ctx=ctx_base,
                     )
                 start_pt = player_pos[act.player]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -479,13 +674,14 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="CHECK_TO_BALL",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "CHECK_TO_BALL", start, end)
+                reg(act.player, "CHECK_TO_BALL", start, end, ev=ev, idx=i)
                 player_zone[act.player] = act.to_zone
                 player_pos[act.player] = end_pt
 
             case ThirdManRunAction():
-                check_player(act.runner, "THIRD_MAN_RUN.runner", i)
+                check_player(act.runner, "THIRD_MAN_RUN.runner", i, ev)
                 start_pt = player_pos[act.runner]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
                 speed_check(
@@ -495,22 +691,30 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="THIRD_MAN_RUN",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.runner, "THIRD_MAN_RUN", start, end)
+                reg(act.runner, "THIRD_MAN_RUN", start, end, ev=ev, idx=i)
                 player_zone[act.runner] = act.to_zone
                 player_pos[act.runner] = end_pt
 
             case CrossAction():
-                check_player(act.from_player, "CROSS.from_player", i)
+                check_player(act.from_player, "CROSS.from_player", i, ev)
                 if ball_state != BallState.CONTROLLED or ball_owner != act.from_player:
                     err(
-                        f"Event[{i}] CROSS requires controlled ball by from_player '{act.from_player}' at start",
+                        "CROSS requires the ball to be controlled by the crosser at event start. "
+                        f"Found ball_state='{ball_state.name}', ball_owner='{ball_owner}', expected owner='{act.from_player}'. "
+                        "Suggested fix: add a prior PASS/DRIBBLE so the crosser owns the ball at this start_time.",
+                        ctx=ctx_base,
                     )
                 if act.result.name == "RECEIVED":
                     if act.target_player is None:
-                        err(f"Event[{i}] CROSS.result=RECEIVED requires target_player")
+                        err(
+                            "CROSS.result=RECEIVED requires target_player to be set. "
+                            "Suggested fix: set CrossAction.target_player to the intended receiver's Player.id.",
+                            ctx=ctx_base,
+                        )
                     else:
-                        check_player(act.target_player, "CROSS.target_player", i)
+                        check_player(act.target_player, "CROSS.target_player", i, ev)
                 # Ball state update
                 if act.result.name == "RECEIVED":
                     ball_owner = act.target_player
@@ -523,23 +727,35 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                 elif act.result.name == "OUT_OF_PLAY":
                     if i != len(data.events) - 1:
                         err(
-                            f"Event[{i}] CROSS.result=OUT_OF_PLAY must be the final event",
+                            "CROSS.result=OUT_OF_PLAY must be the final event in the scenario timeline. "
+                            f"Events remaining after this cross: {len(data.events) - 1 - i}. "
+                            "Suggested fix: remove subsequent events or change CrossAction.result to a non-terminal value.",
+                            ctx=ctx_base,
                         )
 
             case ShotAction():
-                check_player(act.player, "SHOT.player", i)
+                check_player(act.player, "SHOT.player", i, ev)
                 if ball_state != BallState.CONTROLLED or ball_owner != act.player:
                     err(
-                        f"Event[{i}] SHOT requires controlled ball by shooter '{act.player}' at start",
+                        "SHOT requires the ball to be controlled by the shooter at event start. "
+                        f"Found ball_state='{ball_state.name}', ball_owner='{ball_owner}', expected owner='{act.player}'. "
+                        "Suggested fix: add a prior PASS/DRIBBLE so the shooter owns the ball at this start_time.",
+                        ctx=ctx_base,
                     )
                 if player_zone.get(act.player) != act.shot_zone:
                     err(
-                        f"Event[{i}] SHOT.shot_zone must equal shooter's current zone at start",
+                        "SHOT.shot_zone must equal shooter's current zone at start. "
+                        f"Shooter='{act.player}', shot_zone='{act.shot_zone.name}', current_zone='{fmt_zone(player_zone.get(act.player))}'. "
+                        "Suggested fix: set shot_zone to the current zone or add a preceding MOVE/DRIBBLE to place the shooter there.",
+                        ctx=ctx_base,
                     )
                 if act.result.name in ("GOAL", "OUT_OF_PLAY"):
                     if i != len(data.events) - 1:
                         err(
-                            f"Event[{i}] SHOT.result={act.result.name} must be the final event",
+                            f"SHOT.result={act.result.name} must be the final event in the scenario timeline. "
+                            f"Events remaining after this shot: {len(data.events) - 1 - i}. "
+                            "Suggested fix: remove subsequent events or change ShotAction.result to a non-terminal value.",
+                            ctx=ctx_base,
                         )
                 else:
                     ball_owner = None
@@ -547,15 +763,19 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     ball_zone = act.shot_zone
 
             case PressAction():
-                check_player(act.player, "PRESS.player", i)
-                check_player(act.target_player, "PRESS.target_player", i)
+                check_player(act.player, "PRESS.player", i, ev)
+                check_player(act.target_player, "PRESS.target_player", i, ev)
                 if act.player in atk_ids:
                     err(
-                        f"Event[{i}] PRESS presser '{act.player}' should belong to defending_team",
+                        f"PRESS presser should belong to defending_team (found presser='{act.player}' on attacking_team). "
+                        "Suggested fix: assign the presser to defending_team or change the action to a defensive player.",
+                        ctx=ctx_base,
                     )
                 if act.target_player in def_ids:
                     err(
-                        f"Event[{i}] PRESS target '{act.target_player}' should belong to attacking_team",
+                        f"PRESS target should belong to attacking_team (found target='{act.target_player}' on defending_team). "
+                        "Suggested fix: select an attacking-team player as target or correct roster assignments.",
+                        ctx=ctx_base,
                     )
                 # Approximate presser endpoint: along line to target, stopping 'pressing_distance' short
                 start_pt = player_pos[act.player]
@@ -575,20 +795,25 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="PRESS",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "PRESS", start, end)
+                reg(act.player, "PRESS", start, end, ev=ev, idx=i)
                 player_pos[act.player] = end_pt
 
             case MarkAction():
-                check_player(act.defender, "MARK.defender", i)
-                check_player(act.attacker, "MARK.attacker", i)
+                check_player(act.defender, "MARK.defender", i, ev)
+                check_player(act.attacker, "MARK.attacker", i, ev)
                 if act.defender in atk_ids:
                     err(
-                        f"Event[{i}] MARK defender '{act.defender}' should belong to defending_team",
+                        f"MARK defender should belong to defending_team (found defender='{act.defender}' on attacking_team). "
+                        "Suggested fix: assign this player to defending_team or swap the roles.",
+                        ctx=ctx_base,
                     )
                 if act.attacker in def_ids:
                     err(
-                        f"Event[{i}] MARK attacker '{act.attacker}' should belong to attacking_team",
+                        f"MARK attacker should belong to attacking_team (found attacker='{act.attacker}' on defending_team). "
+                        "Suggested fix: assign the attacker to attacking_team or change the attacker ID.",
+                        ctx=ctx_base,
                     )
                 # Goal-side means toward defending team's own goal (y increasing, capped at 1.0)
                 start_pt = player_pos[act.defender]
@@ -601,36 +826,45 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="MARK",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.defender, "MARK", start, end)
+                reg(act.defender, "MARK", start, end, ev=ev, idx=i)
                 player_pos[act.defender] = end_pt
 
             case TrackRunnerAction():
-                check_player(act.defender, "TRACK_RUNNER.defender", i)
-                check_player(act.runner, "TRACK_RUNNER.runner", i)
+                check_player(act.defender, "TRACK_RUNNER.defender", i, ev)
+                check_player(act.runner, "TRACK_RUNNER.runner", i, ev)
                 if act.defender in atk_ids:
                     err(
-                        f"Event[{i}] TRACK_RUNNER defender '{act.defender}' should belong to defending_team",
+                        f"TRACK_RUNNER defender should belong to defending_team (found defender='{act.defender}' on attacking_team). "
+                        "Suggested fix: assign the defender to defending_team.",
+                        ctx=ctx_base,
                     )
                 if act.runner in def_ids:
                     err(
-                        f"Event[{i}] TRACK_RUNNER runner '{act.runner}' should belong to attacking_team",
+                        f"TRACK_RUNNER runner should belong to attacking_team (found runner='{act.runner}' on defending_team). "
+                        "Suggested fix: assign the runner to attacking_team.",
+                        ctx=ctx_base,
                     )
                 # Continuous behavior; register interval for concurrency checks
-                reg(act.defender, "TRACK_RUNNER", start, end)
+                reg(act.defender, "TRACK_RUNNER", start, end, ev=ev, idx=i)
 
             case DropAction():
-                check_player(act.player, "DROP.player", i)
+                check_player(act.player, "DROP.player", i, ev)
                 # DROP is "defensive retreat toward defending team's own goal"
-                # Enforce that the player belongs to defending team, and movement goes deeper toward y=1.
                 if act.player not in def_ids:
                     err(
-                        f"Event[{i}] DROP player '{act.player}' should belong to defending_team",
+                        f"DROP player should belong to defending_team (found '{act.player}' on attacking_team). "
+                        "Suggested fix: move this player to defending_team or change the action to a defender.",
+                        ctx=ctx_base,
                     )
                 from_z = player_zone.get(act.player)
                 if from_z and not is_forward_progress(act.to_zone, from_z):
                     err(
-                        f"Event[{i}] DROP.to_zone must move toward defending team's own goal (attacking perspective: forward)",
+                        "DROP.to_zone must move toward defending team's own goal (attacking perspective: forward). "
+                        f"Player='{act.player}', from_zone='{from_z.name}', to_zone='{act.to_zone.name}'. "
+                        "Suggested fix: choose a deeper zone (toward y=1.0 from attacking perspective).",
+                        ctx=ctx_base,
                     )
                 start_pt = player_pos[act.player]
                 end_pt = apply_offsets(act.to_zone, act.to_position)
@@ -641,25 +875,38 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                     duration=ev.duration,
                     label="DROP",
                     idx=i,
+                    ev=ev,
                 )
-                reg(act.player, "DROP", start, end)
+                reg(act.player, "DROP", start, end, ev=ev, idx=i)
                 player_zone[act.player] = act.to_zone
                 player_pos[act.player] = end_pt
 
             case ShiftAction():
                 # Rigid movement of defending outfield block (GK excluded)
-                shift_intervals.append((start, end))
-                for s_rng in shift_intervals[:-1]:
+                # Check overlaps with other SHIFTs
+                for s_rng in shift_intervals:
                     if overlaps((start, end), s_rng):
                         err(
-                            f"Event[{i}] SHIFT overlaps another SHIFT; defensive block translation should be singular",
+                            f"SHIFT overlaps another SHIFT; defensive block translation should be singular. "
+                            f"Current SHIFT [{start:.3f}, {end:.3f}) overlaps [{s_rng:.3f}, {s_rng:.3f}). "
+                            f"Suggested fix: schedule this SHIFT to start at ≥ {s_rng:.3f} or retime the prior SHIFT.",
+                            ctx=ctx_base,
                         )
                         break
+                shift_intervals.append((start, end))
                 dist_norm = act.distance
                 speed = dist_norm / ev.duration if ev.duration > 0 else 0.0
                 if speed > _MAX_SHIFT_SPEED_NORM:
+                    min_duration = (
+                        dist_norm / _MAX_SHIFT_SPEED_NORM
+                        if _MAX_SHIFT_SPEED_NORM > 0
+                        else ev.duration
+                    )
                     err(
-                        f"Event[{i}] SHIFT unrealistic speed {speed:.3f} > {_MAX_SHIFT_SPEED_NORM:.3f}",
+                        f"SHIFT unrealistic speed: distance={dist_norm:.3f}, duration={ev.duration:.3f}s, "
+                        f"speed={speed:.3f} > threshold={_MAX_SHIFT_SPEED_NORM:.3f}. "
+                        f"Suggested fix: increase duration to ≥ {min_duration:.3f}s or reduce act.distance.",
+                        ctx=ctx_base,
                     )
                 # Deformation: overlapping individual movements for defenders during SHIFT
                 for pid, intervals in active_intervals.items():
@@ -672,7 +919,11 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                                 "DROP",
                             ):
                                 err(
-                                    f"Event[{i}] SHIFT overlaps {rng[2]} for defender '{pid}', breaking rigid block semantics",
+                                    f"SHIFT overlaps '{rng[2]}' for defender '{pid}' "
+                                    f"(SHIFT [{start:.3f}, {end:.3f}) vs {rng[2]} [{rng:.3f}, {rng:.3f}]); "
+                                    "rigid block semantics prohibit concurrent individual movement. "
+                                    f"Suggested fix: retime the individual action to end by {start:.3f} or delay SHIFT to start at ≥ {rng:.3f}.",
+                                    ctx=ctx_base,
                                 )
                                 break
                 # Apply translation to defenders except GK
@@ -695,24 +946,30 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
                 # Register a synthetic interval for each defender (optional, for overlap visibility)
                 for p in data.defending_team.players:
                     if p.role != Role.GK:
-                        reg(p.id, "SHIFT", start, end)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+                        reg(p.id, "SHIFT", start, end, ev=ev, idx=i)  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
 
             case TurnoverAction():
                 if act.winner is not None:
-                    check_player(act.winner, "TURNOVER.winner", i)
+                    check_player(act.winner, "TURNOVER.winner", i, ev)
                     if (
                         act.winning_team == TeamType.ATTACK
                         and act.winner not in atk_ids
                     ):
                         err(
-                            f"Event[{i}] TURNOVER.winner must belong to attacking_team when winning_team=ATTACK",
+                            f"TURNOVER.winner must belong to attacking_team when winning_team=ATTACK "
+                            f"(winner='{act.winner}' is not on attacking_team). "
+                            "Suggested fix: change 'winning_team' to DEFEND or select an attacking-team winner.",
+                            ctx=ctx_base,
                         )
                     if (
                         act.winning_team == TeamType.DEFEND
                         and act.winner not in def_ids
                     ):
                         err(
-                            f"Event[{i}] TURNOVER.winner must belong to defending_team when winning_team=DEFEND",
+                            f"TURNOVER.winner must belong to defending_team when winning_team=DEFEND "
+                            f"(winner='{act.winner}' is not on defending_team). "
+                            "Suggested fix: change 'winning_team' to ATTACK or select a defending-team winner.",
+                            ctx=ctx_base,
                         )
                 ball_zone = act.zone
                 if act.winner is not None:
@@ -729,22 +986,23 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
             and player_zone[ball_owner] != ball_zone
         ):
             err(
-                f"Event[{i}] completion: ball_zone must equal ball owner's current zone when controlled",
+                "At event completion, ball_zone must equal ball owner's current zone when ball_state=CONTROLLED. "
+                f"owner='{ball_owner}', owner_zone='{fmt_zone(player_zone.get(ball_owner))}', ball_zone='{ball_zone.name}'. "
+                "Suggested fix: set ball_zone to the owner's zone after the event, or ensure the owner moves into ball_zone within the event.",
+                ctx=ctx_base,
             )
 
     # --- Expected outcomes terminality guard ---
     last_action = data.events[-1].action.root
     if (
         isinstance(last_action, ShotAction)
-        and last_action.result.name
-        in (
-            "GOAL",
-            "OUT_OF_PLAY",
-        )
+        and last_action.result.name in ("GOAL", "OUT_OF_PLAY")
         and len(data.expected_outcomes) > 0
     ):
         err(
-            "Expected outcomes present after a terminal SHOT result; scenario should end without further guaranteed states",
+            "Expected outcomes present after a terminal SHOT result; scenario should end without further guaranteed states. "
+            f"Terminal result='{last_action.result.name}', expected_outcomes count={len(data.expected_outcomes)}. "
+            "Suggested fix: remove expected_outcomes or make the final SHOT non-terminal (e.g., SAVED/BLOCKED/OUT_OF_PLAY already terminal).",
         )
 
     return errors
