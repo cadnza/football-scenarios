@@ -72,7 +72,7 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
             en = ctx.get("end", "?")
             du = ctx.get("duration", "?")
             sys.stderr.write(
-                f"   [Event #{ei} id='{eid}' phase='{ph}' action='{act}' t={st}–{en} dur={du}s]\n",
+                f"   [Event #{ei} id='{eid}' phase='{ph}' action='{act}' t={st}\u2013{en} dur={du}s]\n",
             )
         sys.stderr.write(f"   - {msg}\n")
 
@@ -342,7 +342,7 @@ def validate_scenario_semantics(data: "FootballTacticalScenario", path: Path, /)
         # half-open [start, end)
         return (a[0] < b[1]) and (b[0] < a[1])
 
-    def reg(
+    def reg(  # noqa: PLR0913
         pid: str,
         action_type: str,
         start: float,
