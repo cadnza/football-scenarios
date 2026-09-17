@@ -2,7 +2,7 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "football-tactical-scenario.schema.json",
     "title": "Football Tactical Scenario",
-    "description": "Event-sourced association-football tactical scenario. This schema is the normative semantic contract for scenario instances. The canonical corpus format is YAML 1.2 restricted to the JSON data model: exactly one document per file; mapping keys must be strings; anchors, aliases, merge keys, explicit YAML tags, non-string mapping keys, multiple documents, and non-finite numeric values such as .inf and .nan are prohibited. Consumers validate the JSON data model produced by parsing the YAML; the JSON Schema itself does not validate YAML syntax. All structured fields are load-bearing and must be sufficient for a renderer or simulator to reproduce the scenario's semantic state without interpreting prose fields.",
+    "description": "Event-sourced association-football tactical scenario. This schema is the normative semantic contract for scenario instances. The canonical corpus format is YAML 1.2 restricted to the JSON data model: exactly one document per file; mapping keys must be strings; anchors, aliases, merge keys, explicit YAML tags, non-string mapping keys, multiple documents, and non-finite numeric values such as .inf and .nan are prohibited. Consumers validate the JSON data model produced by parsing the YAML; the JSON Schema itself does not validate YAML syntax. All structured fields are load-bearing and must be sufficient for a renderer or simulator to reproduce the scenario's semantic state without interpreting prose fields. LEARNER DISCLOSURE: a consumer may present a scenario to a learner who is being asked to identify metadata.tactic. Every field in this schema is classified as either LEARNER-SAFE or SPOILER-BEARING, and the classification is stated in that field's own description. A LEARNER-SAFE field is guaranteed not to name, imply, or unambiguously hint at metadata.tactic and may be displayed before the learner answers. A SPOILER-BEARING field carries no such guarantee and must not be displayed until after the learner's answer is final. Any field not explicitly marked LEARNER-SAFE must be treated as SPOILER-BEARING.",
     "type": "object",
     "required": [
         "metadata",
@@ -33,7 +33,7 @@
         "events": {
             "type": "array",
             "title": "Event Timeline",
-            "description": "Events are stored in chronological sequence. Array order is authoritative and is represented redundantly by the required 1-based sequence field. Sequence values must be contiguous and equal to their 1-based array positions. Events are not necessarily sequential in time: two or more events may overlap or occur simultaneously when their time intervals overlap or their start_time values are equal.",
+            "description": "Events are stored in chronological sequence. Array order is authoritative and is represented redundantly by the required 1-based sequence field. Sequence values must be contiguous and equal to their 1-based array positions. Events are not necessarily sequential in time: two or more events may overlap or occur simultaneously when their time intervals overlap or their start_time values are equal. CONSISTENCY CONSTRAINTS. The following must hold of any valid scenario and may be relied upon by a consumer without runtime checking. (1) No two events whose half-open time intervals overlap may move the same player; concurrency is permitted, contradiction is not. TRACK_RUNNER is not exempt: a defender executing TRACK_RUNNER must not be moved by any other event during that interval. (2) Any action that requires possession of the ball — PASS, DRIBBLE, CROSS, SHOT — must be performed by the player who is ball_owner at that event's start_time, and the ball must be in state CONTROLLED at that instant. (3) Where an action supplies a from_zone, that zone must equal the acting player's zone at the event's start_time as determined by the player's starting_zone and all preceding movement. (4) Every player identifier referenced by any action must resolve to a declared player, and every phase_id must resolve to a declared phase.",
             "minItems": 1,
             "items": {
                 "$ref": "#/$defs/event"
@@ -41,14 +41,14 @@
         },
         "expected_outcomes": {
             "type": "array",
-            "description": "Guaranteed end-state assertions for the scenario. An expected outcome is not merely a hoped-for result and is not an assertion about something that may occur transiently during the sequence. If an outcome is not guaranteed by the scenario's structured event stream, it must not be included here.",
+            "description": "Guaranteed end-state assertions for the scenario. An expected outcome is not merely a hoped-for result and is not an assertion about something that may occur transiently during the sequence. If an outcome is not guaranteed by the scenario's structured event stream, it must not be included here. SPOILER-BEARING: outcomes may name or imply metadata.tactic.",
             "items": {
                 "$ref": "#/$defs/outcome"
             }
         },
         "coaching_notes": {
             "type": "array",
-            "description": "Human-facing notes intended for a coach or instructor. These are post-play explanatory material and may reveal the tactic or its solution. They are not load-bearing: a consumer must never need to parse them to determine player positions, ball state, timing, tactic, or any other structured fact.",
+            "description": "Human-facing notes intended for a coach or instructor. These are post-play explanatory material and may reveal the tactic or its solution. They are not load-bearing: a consumer must never need to parse them to determine player positions, ball state, timing, tactic, or any other structured fact. SPOILER-BEARING.",
             "items": {
                 "type": "string"
             }
@@ -69,7 +69,8 @@
                 "title": {
                     "type": "string",
                     "title": "Scenario Title",
-                    "description": "Human-readable scenario title. This field is explanatory metadata and may be displayed to the learner."
+                    "description": "Human-readable scenario title. SPOILER-BEARING: a title is not required to be learner-safe and may name or unambiguously describe metadata.tactic. A consumer that quizzes a learner on the tactic must not display the title until the learner's answer is final. Consumers that are not quizzing the learner, such as a browsing or study interface, may display it freely.",
+                    "maxLength": 200
                 },
                 "tactic": {
                     "$ref": "#/$defs/tactic"
@@ -77,7 +78,7 @@
                 "objective": {
                     "type": "string",
                     "title": "Objective",
-                    "description": "Human-readable coaching objective. This field is explanatory and is not required to determine the structured tactical classification."
+                    "description": "Human-readable coaching objective. This field is explanatory and is not required to determine the structured tactical classification. SPOILER-BEARING: an objective commonly names the tactic outright."
                 },
                 "difficulty": {
                     "$ref": "#/$defs/difficulty"
@@ -98,15 +99,17 @@
             "additionalProperties": false,
             "properties": {
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-readable team name. LEARNER-SAFE: team names must not encode the tactic."
                 },
                 "formation": {
                     "type": "string",
-                    "description": "Human-readable formation notation, such as 4-3-3. Formation is descriptive metadata; the actual starting player locations are determined by each player's starting_zone and optional starting_position."
+                    "description": "Human-readable formation notation, such as 4-3-3. Formation is descriptive metadata; the actual starting player locations are determined by each player's starting_zone and optional starting_position. A consumer must not parse this string to derive positions, and must not use it to infer the existence of players not declared in the players array. LEARNER-SAFE."
                 },
                 "players": {
                     "type": "array",
                     "minItems": 1,
+                    "description": "The players declared for this team. A scenario declares exactly the players it intends to depict; a consumer must not synthesize additional players to complete a formation. A declared player who is named by no event remains stationary at their starting position for the entire scenario.",
                     "items": {
                         "$ref": "#/$defs/player"
                     }
@@ -125,7 +128,7 @@
                 "id": {
                     "type": "string",
                     "title": "Player Identifier",
-                    "description": "Globally unique player identifier within the entire scenario, not merely within a team. Because actions reference players by bare ID, duplicate IDs across either team are invalid. IDs must be unique across both attacking_team.players and defending_team.players.",
+                    "description": "Globally unique player identifier within the entire scenario, not merely within a team. Because actions reference players by bare ID, duplicate IDs across either team are invalid. IDs must be unique across both attacking_team.players and defending_team.players. SPOILER-BEARING: identifiers are authoring conveniences and are not guaranteed free of tactical hints; a consumer quizzing a learner should display role rather than id.",
                     "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "role": {
@@ -139,7 +142,7 @@
                 },
                 "tactical_instructions": {
                     "type": "array",
-                    "description": "Human-readable structured instruction labels describing the player's intended tactical behavior. These instructions are declarative coaching metadata, not additional movement events.",
+                    "description": "Human-readable structured instruction labels describing the player's intended tactical behavior. These instructions are declarative coaching metadata, not additional movement events. A consumer must never generate motion from them. SPOILER-BEARING: instruction labels overlap the tactic vocabulary.",
                     "items": {
                         "$ref": "#/$defs/tactical_instruction"
                     }
@@ -149,7 +152,7 @@
         "zone_position": {
             "type": "object",
             "title": "Zone Position",
-            "description": "Refinement of a player's position within a zone. Both offsets are normalized independently from -1.0 to 1.0. Zero is the exact geometric center of the zone. -1.0 and 1.0 correspond to the two boundaries of that axis of the zone. The offsets are normalized against the actual width and depth of the zone, so they do not imply equal physical distances when the zone is rectangular. If this object is absent, both offsets are implicitly 0.0. These coordinates are spatially meaningful, not merely cosmetic: they establish the player's exact position within the canonical zone geometry. A movement into a new zone resets unspecified offsets to 0.0; a movement may explicitly supply destination_position to preserve or change an offset.",
+            "description": "Refinement of a player's position within a zone. Both offsets are normalized independently from -1.0 to 1.0. Zero is the exact geometric center of the zone. -1.0 and 1.0 correspond to the two boundaries of that axis of the zone. The offsets are normalized against the actual width and depth of the zone, so they do not imply equal physical distances when the zone is rectangular. If this object is absent, both offsets are implicitly 0.0. These coordinates are spatially meaningful, not merely cosmetic: they establish the player's exact position within the canonical zone geometry. A movement into a new zone resets unspecified offsets to 0.0; a movement may explicitly supply destination_position to preserve or change an offset. RESOLUTION. Given the zone's rectangle in normalized pitch coordinates, the resolved point is (center_x + lane_offset * width / 2, center_y + depth_offset * depth / 2). COINCIDENCE IS INTENTIONAL. Because offsets are explicit and load-bearing, two players resolving to the same or nearly the same point is an assertion of the scenario, not an authoring accident. A consumer must not apply collision avoidance, automatic fan-out, jitter, or any other positional adjustment to separate markers. A consumer may adjust purely visual properties such as draw order or marker outline to keep coincident players distinguishable, provided it does not move them.",
             "additionalProperties": false,
             "properties": {
                 "lane_offset": {
@@ -170,7 +173,7 @@
         },
         "game_state": {
             "type": "object",
-            "description": "World state at the beginning of the scenario. Player positions then persist through the event stream. Consumers must maintain the resulting state after every event.",
+            "description": "World state at the beginning of the scenario. Player positions then persist through the event stream. Consumers must maintain the resulting state after every event. A player's position persists until an event moves them; a player moved by an event remains at that destination until another event moves them again.",
             "required": [
                 "ball_owner",
                 "ball_zone",
@@ -200,7 +203,7 @@
         },
         "defensive_block": {
             "type": "object",
-            "description": "Initial descriptive state of the defending team's defensive block. This object is an initial condition, not a continuously evolving state variable. Subsequent defensive movement is represented only by explicit events. A SHIFT does not implicitly change height, compactness, or pressure_level.",
+            "description": "Initial descriptive state of the defending team's defensive block. This object is an initial condition, not a continuously evolving state variable. Subsequent defensive movement is represented only by explicit events. A SHIFT does not implicitly change height, compactness, or pressure_level. LEARNER-SAFE: the block's initial shape is an observable feature of the scenario and may be displayed before the learner answers.",
             "required": [
                 "height",
                 "compactness",
@@ -247,22 +250,23 @@
             "properties": {
                 "id": {
                     "type": "string",
+                    "description": "Phase identifier, unique within the scenario, referenced by event.phase_id.",
                     "pattern": "^[a-z]+(-[a-z]+)*$"
                 },
                 "name": {
                     "type": "string",
-                    "description": "Learner-safe phase label. This name may be displayed during playback and therefore must not explicitly name or reveal metadata.tactic or an unambiguous synonym for the answer."
+                    "description": "Learner-safe phase label. This name may be displayed during playback and therefore must not explicitly name or reveal metadata.tactic or an unambiguous synonym for the answer. LEARNER-SAFE: this is the only prose field in the schema carrying that guarantee."
                 },
                 "attacking_goal": {
                     "type": "string",
-                    "description": "Human-readable description of the tactical goal of this phase. It is explanatory and is not load-bearing for animation or validation."
+                    "description": "Human-readable description of the tactical goal of this phase. It is explanatory and is not load-bearing for animation or validation. SPOILER-BEARING."
                 },
                 "expected_defensive_response": {
                     "$ref": "#/$defs/defensive_response"
                 },
                 "success_condition": {
                     "type": "string",
-                    "description": "Human-readable description of the condition that constitutes success for the phase. It is explanatory and must not be parsed as machine-readable state."
+                    "description": "Human-readable description of the condition that constitutes success for the phase. It is explanatory and must not be parsed as machine-readable state. SPOILER-BEARING."
                 }
             }
         },
@@ -300,7 +304,7 @@
                 "duration": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Event duration in seconds. The event occupies the half-open interval [start_time, start_time + duration). Player and ball movement is interpolated continuously throughout this interval unless the action description specifies a following behavior such as TRACK_RUNNER. A gap between events represents a period during which no encoded event occurs; it is not implicitly a tactical pause or ball-holding action."
+                    "description": "Event duration in seconds. The event occupies the half-open interval [start_time, start_time + duration). Player and ball movement is interpolated continuously throughout this interval unless the action description specifies a following behavior such as TRACK_RUNNER. A gap between events represents a period during which no encoded event occurs; it is not implicitly a tactical pause or ball-holding action. The total duration of the scenario is the maximum of start_time + duration over all events."
                 },
                 "action": {
                     "$ref": "#/$defs/action"
@@ -310,20 +314,20 @@
                 },
                 "advantages_created": {
                     "type": "array",
-                    "description": "Structured advantages created when this event completes. These are machine-readable tactical annotations, not merely prose.",
+                    "description": "Structured advantages created when this event completes. These are machine-readable tactical annotations, not merely prose. SPOILER-BEARING: advantage types and their descriptions frequently identify the tactic.",
                     "items": {
                         "$ref": "#/$defs/advantage"
                     }
                 },
                 "tactical_explanation": {
                     "type": "string",
-                    "description": "Human-facing explanation of why the event matters tactically. It is post-play explanatory material, may name the tactic, and is never required for machine interpretation."
+                    "description": "Human-facing explanation of why the event matters tactically. It is post-play explanatory material, may name the tactic, and is never required for machine interpretation. SPOILER-BEARING."
                 }
             }
         },
         "action": {
             "title": "Football Action",
-            "description": "Strongly typed football action. Every action that changes a player's spatial state provides an explicit destination or a normative derivation rule. Player movement between explicit zones is rendered as continuous linear interpolation at constant speed over the event duration unless a tracking action specifies otherwise.",
+            "description": "Strongly typed football action. Every action that changes a player's spatial state provides an explicit destination or a normative derivation rule. Player movement between explicit zones is rendered as continuous linear interpolation at constant speed over the event duration unless a tracking action specifies otherwise. INTERPOLATION IS LINEAR AND UNEASED. A consumer must not apply an easing curve, acceleration or deceleration profile, overshoot, or any other temporal shaping to encoded movement; start_time and duration are the author's statement of tempo, and shaping them misrepresents the scenario. All interpolation, distance, and direction computation is performed in the metric space defined in the zone enum's description, never directly in normalized coordinates.",
             "oneOf": [
                 {
                     "$ref": "#/$defs/pass_action"
@@ -408,7 +412,7 @@
                     "$ref": "#/$defs/pass_trajectory"
                 }
             },
-            "description": "Successful controlled pass. The ball travels from the passer's current position toward the receiver's current/end position and possession transfers to to_player at event completion. Neither player is moved by the PASS action itself."
+            "description": "Successful controlled pass. The ball travels from the passer's current position toward the receiver's current/end position and possession transfers to to_player at event completion. Neither player is moved by the PASS action itself. BALL PATH. The ball's origin is the passer's position at start_time and its destination is the receiver's position at start_time + duration. The destination is fixed at event start and the ball interpolates linearly toward that fixed point; the ball does not continuously re-aim at the receiver if the receiver moves during the pass. A consumer may depict the trajectory's vertical profile according to the trajectory value, but the ground-plane path is a straight line between those two points."
         },
         "dribble_action": {
             "type": "object",
@@ -436,7 +440,7 @@
                     "$ref": "#/$defs/zone_position"
                 }
             },
-            "description": "Ball-carrying movement by player. The player and ball move continuously from the player's current position in from_zone to the destination represented by to_zone and optional to_position. If to_position is absent, the destination is the center of to_zone. The player retains possession throughout the action and at completion."
+            "description": "Ball-carrying movement by player. The player and ball move continuously from the player's current position in from_zone to the destination represented by to_zone and optional to_position. If to_position is absent, the destination is the center of to_zone. The player retains possession throughout the action and at completion. The ball's position is the player's position for the whole interval."
         },
         "move_action": {
             "type": "object",
@@ -632,7 +636,7 @@
                     "$ref": "#/$defs/cross_result"
                 }
             },
-            "description": "Ball played from the wide/crossing player toward target_zone. target_player identifies the intended teammate when one is specified; it is required when result is RECEIVED and forbidden from being interpreted as an automatic reception otherwise. CROSS does not move the crossing player. Unless result is RECEIVED, the ball becomes LOOSE at the target zone or leaves play as specified by result."
+            "description": "Ball played from the wide/crossing player toward target_zone. target_player identifies the intended teammate when one is specified; it is required when result is RECEIVED and forbidden from being interpreted as an automatic reception otherwise. CROSS does not move the crossing player. Unless result is RECEIVED, the ball becomes LOOSE at the target zone or leaves play as specified by result. BALL PATH. The ball's origin is the crossing player's position at start_time. Its destination is target_player's position at start_time + duration when result is RECEIVED, and the center of target_zone in every other case. As with PASS, the destination is fixed at event start and the ball does not re-aim during flight."
         },
         "shot_action": {
             "type": "object",
@@ -661,7 +665,7 @@
                     "$ref": "#/$defs/shot_result"
                 }
             },
-            "description": "Shot taken by player. shot_zone is the zone from which the shot is taken, not the intended target location of the shot. The result explicitly determines whether the scenario ends, whether the ball remains loose, or whether possession changes."
+            "description": "Shot taken by player. shot_zone is the zone from which the shot is taken, not the intended target location of the shot. The result explicitly determines whether the scenario ends, whether the ball remains loose, or whether possession changes. SHOT does not move the shooter. BALL PATH. The ball's origin is the shooter's position at start_time. Its destination is determined solely by result and is specified in the shot_result enum's description; a consumer must not invent a shot destination."
         },
         "press_action": {
             "type": "object",
@@ -687,10 +691,10 @@
                 "pressing_distance": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Normalized pitch-distance from the target player at the end of the press. 1.0 equals the full pitch length. The presser approaches the target and finishes pressing_distance away from the target along the line from the presser's starting position toward the target. This prevents the renderer from having to invent a stopping distance."
+                    "description": "Normalized pitch-distance from the target player at the end of the press. 1.0 equals the full pitch length, so the distance in metric units is pressing_distance * 105. The presser approaches the target and finishes pressing_distance away from the target along the line from the presser's starting position toward the target. This prevents the renderer from having to invent a stopping distance. DEGENERATE CASE. If the presser and the target occupy the same point at start_time, the approach direction is taken as increasing y, that is, toward the goal the attacking team is attacking. If pressing_distance exceeds the initial separation, the presser does not move."
                 }
             },
-            "description": "Defensive pressure applied to target_player. The presser moves toward the target but does not arrive at or overlap the target. The target's position is unchanged unless another explicit event moves them."
+            "description": "Defensive pressure applied to target_player. The presser moves toward the target but does not arrive at or overlap the target. The target's position is unchanged unless another explicit event moves them. The target's position for this computation is its position at start_time; PRESS is a single movement, not a following behavior. Use TRACK_RUNNER for continuous following."
         },
         "shift_action": {
             "type": "object",
@@ -716,10 +720,10 @@
                 "distance": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Normalized translation magnitude. For LEFT/RIGHT, 1.0 equals the full pitch width; for FORWARD/BACKWARD, 1.0 equals the full pitch length."
+                    "description": "Normalized translation magnitude. For LEFT/RIGHT, 1.0 equals the full pitch width; for FORWARD/BACKWARD, 1.0 equals the full pitch length. Because normalized x is already normalized against pitch width and normalized y against pitch length, this value is applied directly in normalized coordinates: LEFT is delta-x of -distance, RIGHT is +distance, BACKWARD is delta-y of -distance, FORWARD is +distance. Translated positions are clamped to the pitch."
                 }
             },
-            "description": "Collective rigid movement of the defending team's outfield defensive block. Every non-GK player of defending_team is translated by the same vector and therefore maintains their relative spacing. The goalkeeper is not included. SHIFT cannot represent deformation of the block; use explicit MOVE/RUN actions for individual deviations. SHIFT changes player positions only and never implicitly changes defensive_block.height, compactness, or pressure_level."
+            "description": "Collective rigid movement of the defending team's outfield defensive block. Every non-GK player of defending_team is translated by the same vector and therefore maintains their relative spacing. The goalkeeper is not included. SHIFT cannot represent deformation of the block; use explicit MOVE/RUN actions for individual deviations. SHIFT changes player positions only and never implicitly changes defensive_block.height, compactness, or pressure_level. SHIFT never moves any attacking_team player."
         },
         "mark_action": {
             "type": "object",
@@ -743,10 +747,10 @@
                 "goal_side_distance": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Normalized pitch-distance between defender and attacker at the end of the marking action. 1.0 equals the full pitch length. The defender takes a position goal-side of the attacker, where goal-side means toward the defending team's own goal."
+                    "description": "Normalized pitch-distance between defender and attacker at the end of the marking action. 1.0 equals the full pitch length, so the distance in metric units is goal_side_distance * 105. The defender takes a position goal-side of the attacker, where goal-side means toward the defending team's own goal. GOAL-SIDE DIRECTION. The goal-side direction is the unit vector, computed in metric space, from the attacker's position at start_time toward the center of the goal the attacking team is attacking, which is the normalized point (1/2, 1). It is a direction toward the goal's center, not simply an offset along increasing y; for a wide attacker the marking position is therefore both deeper and more central. The defender's endpoint is the attacker's position translated along that unit vector by the metric distance. DEGENERATE CASE. If the attacker occupies the goal center point, the direction is taken as increasing y."
                 }
             },
-            "description": "Defender establishes goal-side marking position relative to attacker. The defender's endpoint is derived from the attacker's current position and goal-side direction using goal_side_distance. The attacker does not move unless another explicit event moves them."
+            "description": "Defender establishes goal-side marking position relative to attacker. The defender's endpoint is derived from the attacker's current position and goal-side direction using goal_side_distance. The attacker does not move unless another explicit event moves them. MARK is a single movement to a computed endpoint, using the attacker's position at start_time; it is not a following behavior."
         },
         "track_runner_action": {
             "type": "object",
@@ -770,10 +774,10 @@
                 "tracking_distance": {
                     "type": "number",
                     "exclusiveMinimum": 0,
-                    "description": "Normalized pitch-distance maintained between defender and runner while tracking. 1.0 equals the full pitch length."
+                    "description": "Normalized pitch-distance maintained between defender and runner while tracking. 1.0 equals the full pitch length, so the distance in metric units is tracking_distance * 105. TRACKING DIRECTION. At every instant in the interval, the defender is positioned at that metric distance from the runner's interpolated position, along the unit vector from the runner toward the center of the goal the attacking team is attacking, the normalized point (1/2, 1). This is the same goal-side convention used by MARK, so a defender who marks and then tracks does not jump between two different conventions. DEGENERATE CASE. If the runner occupies the goal center point, the direction is taken as increasing y."
                 }
             },
-            "description": "Continuous defensive behavior lasting for the event duration. The defender continuously follows the runner's interpolated position while maintaining tracking_distance, rather than performing a one-time move. If the runner does not move during the interval, the defender remains at the corresponding tracking position. The runner's movement is authoritative; TRACK_RUNNER never moves the runner."
+            "description": "Continuous defensive behavior lasting for the event duration. The defender continuously follows the runner's interpolated position while maintaining tracking_distance, rather than performing a one-time move. If the runner does not move during the interval, the defender remains at the corresponding tracking position. The runner's movement is authoritative; TRACK_RUNNER never moves the runner. The defender's position at the instant the interval begins is the tracking position, which may differ from where the defender previously stood; a consumer places the defender at the tracking position from the first instant of the interval rather than easing into it."
         },
         "drop_action": {
             "type": "object",
@@ -822,11 +826,11 @@
                     "description": "Optional player who wins/recovers possession. If supplied, this player becomes ball_owner when the turnover completes."
                 }
             },
-            "description": "Explicit change of possession without requiring an intervening pass, shot, or cross. This action is used for interceptions, tackles, loose-ball recoveries, and other turnovers. It is the canonical mechanism for representing the possession change that begins a counter-attack or counter-press. If winner is omitted, the ball becomes LOOSE in zone until a later action establishes possession."
+            "description": "Explicit change of possession without requiring an intervening pass, shot, or cross. This action is used for interceptions, tackles, loose-ball recoveries, and other turnovers. It is the canonical mechanism for representing the possession change that begins a counter-attack or counter-press. If winner is omitted, the ball becomes LOOSE in zone until a later action establishes possession. TURNOVER moves no player. If winner is supplied, the ball's position at completion is that player's position; the zone field then records where the turnover occurred and must agree with the winner's position at completion. If winner is omitted, the ball's position at completion is the center of zone."
         },
         "tactic": {
             "type": "string",
-            "description": "The single primary tactical classification of the scenario. This is the one answer the learner is expected to identify. Supporting mechanisms may occur in the event stream but do not constitute additional answers. The enum declaration order has no semantic meaning for tactics.",
+            "description": "The single primary tactical classification of the scenario. This is the one answer the learner is expected to identify. Supporting mechanisms may occur in the event stream but do not constitute additional answers. The enum declaration order has no semantic meaning for tactics, and a consumer must not derive an ordering, ranking, or difficulty from it. SPOILER-BEARING: this field is the answer and must never be disclosed to a learner before their answer is final.",
             "enum": [
                 "SWITCH_PLAY",
                 "OVERLAP",
@@ -844,7 +848,7 @@
         },
         "difficulty": {
             "type": "string",
-            "description": "Difficulty measures the difficulty of correctly recognizing the primary tactic from the scenario's observable structured sequence, not merely the number of players, number of events, or execution complexity. Levels are calibrated across tactics and therefore are comparable between tactics. Enum declaration order is normative and defines ascending difficulty: LEVEL1_NOVICE < LEVEL2_BEGINNER < LEVEL3_INTERMEDIATE < LEVEL4_ADVANCED < LEVEL5_EXPERT. The corpus is not required to contain every tactic/difficulty combination; absence of a combination is a corpus coverage gap, not evidence that the level does not exist.",
+            "description": "Difficulty measures the difficulty of correctly recognizing the primary tactic from the scenario's observable structured sequence, not merely the number of players, number of events, or execution complexity. Levels are calibrated across tactics and therefore are comparable between tactics. Enum declaration order is normative and defines ascending difficulty: LEVEL1_NOVICE < LEVEL2_BEGINNER < LEVEL3_INTERMEDIATE < LEVEL4_ADVANCED < LEVEL5_EXPERT. A consumer requiring an ordering must derive it from declaration order and must not restate the ordering as a separate constant, table, or numeric rank. The corpus is not required to contain every tactic/difficulty combination; absence of a combination is a corpus coverage gap, not evidence that the level does not exist. LEARNER-SAFE: difficulty describes how hard recognition is and does not indicate which tactic is present.",
             "enum": [
                 "LEVEL1_NOVICE",
                 "LEVEL2_BEGINNER",
@@ -855,7 +859,7 @@
         },
         "play_direction": {
             "type": "string",
-            "description": "Presentation orientation only. It does not change the semantics of DEF/MID/ATT, LEFT/RIGHT, zone_position offsets, or action directions. All tactical spatial semantics use the attacking team's perspective: the attacking team faces its attacking goal, FORWARD points toward that goal, LEFT is the attacking team's left, and RIGHT is its right. A renderer may freely normalize every scenario to one canonical screen orientation and use play_direction only when preserving the authored visual orientation is desired.",
+            "description": "Presentation orientation only. It does not change the semantics of DEF/MID/ATT, LEFT/RIGHT, zone_position offsets, or action directions. All tactical spatial semantics use the attacking team's perspective: the attacking team faces its attacking goal, FORWARD points toward that goal, LEFT is the attacking team's left, and RIGHT is its right. A renderer may freely normalize every scenario to one canonical screen orientation and use play_direction only when preserving the authored visual orientation is desired. A renderer that normalizes is not required to expose, record, or otherwise honor the authored orientation, and discarding it loses no tactical information. LEARNER-SAFE.",
             "enum": [
                 "BOTTOM_TO_TOP",
                 "TOP_TO_BOTTOM",
@@ -873,6 +877,7 @@
         },
         "role": {
             "type": "string",
+            "description": "Positional role of the player. Role is a stable identity label for the whole scenario and does not change when the player moves. LEARNER-SAFE: roles are observable on the pitch and may be displayed before the learner answers.",
             "enum": [
                 "GK",
                 "LB",
@@ -896,7 +901,7 @@
         },
         "zone": {
             "type": "string",
-            "description": "Canonical pitch zones. All zone geometry is defined in normalized pitch coordinates from the attacking team's perspective. Let x=0 be the attacking team's left touchline and x=1 its right touchline. Let y=0 be the attacking team's own goal line and y=1 the goal line it is attacking. Thus increasing y is always FORWARD. The ordinary field is divided into three equal-depth bands: DEF is y=[0, 1/3], MID is y=[1/3, 2/3], and ATT is y=[2/3, 1]. The ordinary grid has eleven equal-width lanes, each width 1/11. From left to right those lanes are: outermost lane [0,1/11], LEFT_WING [1/11,2/11], LEFT_HALFSPACE [2/11,3/11], LEFT_CHANNEL [3/11,4/11], CENTER_LEFT [4/11,5/11], CENTER [5/11,6/11], CENTER_RIGHT [6/11,7/11], RIGHT_CHANNEL [7/11,8/11], RIGHT_HALFSPACE [8/11,9/11], RIGHT_WING [9/11,10/11], outermost lane [10/11,1]. DEF_LEFT_CORNER and DEF_RIGHT_CORNER therefore mean the outermost lanes of the defensive third; CORNER does not mean a special point or irregular corner-shaped region. MID_LEFT_TOUCHLINE and MID_RIGHT_TOUCHLINE are the same outermost lanes at normal middle-third depth. ATT_LEFT_CORNER and ATT_RIGHT_CORNER are likewise the outermost lanes of the attacking third. The five box zones are an overlay on the attacking third, not replacements for the ATT grid: the penalty area is x=[18/68,50/68] and y=[87/105,1]; LEFT_BOX is its left third, x=[18/68, (18/68+1/2)/2], CENTER_BOX is its central third, x=[(18/68+1/2)/2, (1/2+50/68)/2], and RIGHT_BOX is its right third, x=[(1/2+50/68)/2,50/68]. Equivalently, the three box zones divide the penalty area into three equal-width vertical regions. CENTER_BOX is inside the penalty area; ATT_ZONE14 is outside the penalty area and overlaps it only conceptually as part of the coarse attacking-third grid. SIX_YARD_BOX is the central six-yard box overlay, x=[22/68,46/68], y=[99/105,1]. PENALTY_SPOT is a point rather than an area, at x=1/2, y=94/105; for purposes of zone_position it is treated as a zero-area anchor and offsets should normally be omitted. There is intentionally no defensive-third equivalent of the box overlay. The geometry is canonical normalized geometry, not a claim about a particular physical pitch's exact dimensions.",
+            "description": "Canonical pitch zones. All zone geometry is defined in normalized pitch coordinates from the attacking team's perspective. Let x=0 be the attacking team's left touchline and x=1 its right touchline. Let y=0 be the attacking team's own goal line and y=1 the goal line it is attacking. Thus increasing y is always FORWARD. The ordinary field is divided into three equal-depth bands: DEF is y=[0, 1/3], MID is y=[1/3, 2/3], and ATT is y=[2/3, 1]. The ordinary grid has eleven equal-width lanes, each width 1/11. From left to right those lanes are: outermost lane [0,1/11], LEFT_WING [1/11,2/11], LEFT_HALFSPACE [2/11,3/11], LEFT_CHANNEL [3/11,4/11], CENTER_LEFT [4/11,5/11], CENTER [5/11,6/11], CENTER_RIGHT [6/11,7/11], RIGHT_CHANNEL [7/11,8/11], RIGHT_HALFSPACE [8/11,9/11], RIGHT_WING [9/11,10/11], outermost lane [10/11,1]. DEF_LEFT_CORNER and DEF_RIGHT_CORNER therefore mean the outermost lanes of the defensive third; CORNER does not mean a special point or irregular corner-shaped region. MID_LEFT_TOUCHLINE and MID_RIGHT_TOUCHLINE are the same outermost lanes at normal middle-third depth. ATT_LEFT_CORNER and ATT_RIGHT_CORNER are likewise the outermost lanes of the attacking third. The five box zones are an overlay on the attacking third, not replacements for the ATT grid. Their geometry follows the Laws of the Game rather than the eleven-lane grid, because the penalty area and six-yard box are fixed real dimensions that do not scale with pitch size: the goal is 7.32 wide, the penalty area extends 16.5 laterally from each goalpost and 16.5 from the goal line, and the six-yard box extends 5.5 from each goalpost and 5.5 from the goal line. On the canonical 105 by 68 pitch that gives a penalty area 40.32 wide by 16.5 deep at x=[173/850,677/850] and y=[59/70,1], and a six-yard box 18.32 wide by 5.5 deep at x=[621/1700,1079/1700] and y=[199/210,1]. THE THREE LATERAL BOX ZONES follow the standard near-post / central / far-post division used in football analysis and coaching: the central zone is the six-yard-box channel projected out to the penalty-area line, and the two flanking zones are what remains on either side. Therefore LEFT_BOX is x=[173/850,621/1700], CENTER_BOX is x=[621/1700,1079/1700], and RIGHT_BOX is x=[1079/1700,677/850], all with y=[59/70,1]. They partition the penalty area laterally with no gap and no overlap. They are NOT of equal width: the flanking zones are 11 wide and the central zone is 18.32 wide, a ratio of roughly 1 : 1.67 : 1. CENTER_BOX and SIX_YARD_BOX therefore share the same lateral bounds and differ only in depth: SIX_YARD_BOX is the near portion of the central channel, x=[621/1700,1079/1700] and y=[199/210,1]. The explicit fractions above are authoritative wherever prose and arithmetic could be read as disagreeing. CENTER_BOX is inside the penalty area; ATT_ZONE14 as a coarse-grid lane is not confined to the area outside the penalty area, so an author who means specifically the space inside the box must say CENTER_BOX and one who means the space in front of it must rely on the depth offset. PENALTY_SPOT is a point rather than an area, at x=1/2, y=94/105, which is the real 11 from the goal line; for purposes of zone_position it is treated as a zero-area anchor and offsets should normally be omitted. There is intentionally no defensive-third equivalent of the box overlay. The geometry is canonical normalized geometry, not a claim about a particular physical pitch's exact dimensions. METRIC SPACE. Normalized space is anisotropic, so distances, directions, and interpolation must never be computed directly in it. For any such computation the canonical pitch is 105 length units long by 68 length units wide, consistent with the fractions used above, and a normalized point (x, y) maps to the metric point (x * 68, y * 105). Every field in this schema expressed as a normalized pitch-distance where 1.0 equals the full pitch length converts to metric units by multiplying by 105. GOAL GEOMETRY. Each goal mouth is centered at x=1/2 on its goal line and is 7.32 length units wide, so its posts are at x = 1/2 - 3.66/68 and x = 1/2 + 3.66/68. The goal the attacking team is attacking, which is the defending team's own goal, is centered at the normalized point (1/2, 1); the attacking team's own goal is centered at (1/2, 0).",
             "enum": [
                 "DEF_LEFT_CORNER",
                 "DEF_LEFT_WING",
@@ -940,7 +945,7 @@
         },
         "tactical_purpose": {
             "type": "string",
-            "description": "The local tactical purpose of an individual event. This is not the scenario's classification and does not have to equal metadata.tactic. Shared names between this enum and tactic have related ordinary football meanings but are intentionally distinct concepts: tactic identifies the scenario-level teaching target; tactical_purpose identifies why an individual event occurs.",
+            "description": "The local tactical purpose of an individual event. This is not the scenario's classification and does not have to equal metadata.tactic. Shared names between this enum and tactic have related ordinary football meanings but are intentionally distinct concepts: tactic identifies the scenario-level teaching target; tactical_purpose identifies why an individual event occurs. SPOILER-BEARING: a sequence of purposes frequently identifies the tactic, so a consumer quizzing a learner must not display these before the answer is final.",
             "enum": [
                 "CREATE_WIDTH",
                 "ATTRACT_PRESSURE",
@@ -958,6 +963,7 @@
         },
         "tactical_instruction": {
             "type": "string",
+            "description": "Declarative coaching label describing a player's intended behavior. It generates no motion and is never load-bearing. SPOILER-BEARING.",
             "enum": [
                 "HOLD_WIDTH",
                 "STAY_HIGH",
@@ -973,7 +979,7 @@
         },
         "defensive_response": {
             "type": "string",
-            "description": "Descriptive expectation for how the defending block should respond during the phase. This is coaching metadata, not an implicit movement command. If the response must be visible in the animation, it must also be represented by an explicit defensive action event.",
+            "description": "Descriptive expectation for how the defending block should respond during the phase. This is coaching metadata, not an implicit movement command. If the response must be visible in the animation, it must also be represented by an explicit defensive action event. A consumer must never generate motion from this field. SPOILER-BEARING.",
             "enum": [
                 "SHIFT_LEFT",
                 "SHIFT_RIGHT",
@@ -987,6 +993,7 @@
         },
         "advantage_type": {
             "type": "string",
+            "description": "Classification of a tactical advantage created by an event. SPOILER-BEARING.",
             "enum": [
                 "NUMERICAL_ADVANTAGE",
                 "POSITIONAL_ADVANTAGE",
@@ -999,6 +1006,7 @@
         },
         "outcome_type": {
             "type": "string",
+            "description": "Classification of a guaranteed end-state assertion. SPOILER-BEARING.",
             "enum": [
                 "BALL_CHANGES_FLANK",
                 "DEFENSIVE_BLOCK_SHIFTS",
@@ -1021,7 +1029,7 @@
                 },
                 "description": {
                     "type": "string",
-                    "description": "Human-facing explanation of the guaranteed end-state assertion. It is not load-bearing."
+                    "description": "Human-facing explanation of the guaranteed end-state assertion. It is not load-bearing. SPOILER-BEARING."
                 }
             }
         },
@@ -1037,20 +1045,21 @@
                 },
                 "zone": {
                     "$ref": "#/$defs/zone",
-                    "description": "Specific zone to which the advantage applies. If omitted, the advantage has no specific spatial locus and must not be rendered as belonging to the current ball zone or any player's zone by default."
+                    "description": "Specific zone to which the advantage applies. If omitted, the advantage has no specific spatial locus and must not be rendered as belonging to the current ball zone or any player's zone by default. A consumer that highlights advantage zones must render no spatial highlight at all when this field is absent."
                 },
                 "player": {
                     "type": "string",
-                    "description": "Specific player who benefits from the advantage. If omitted, the advantage is not attributed to a particular player."
+                    "description": "Specific player who benefits from the advantage. If omitted, the advantage is not attributed to a particular player and a consumer must not attribute it to one."
                 },
                 "description": {
                     "type": "string",
-                    "description": "Human-facing explanation. It is not load-bearing."
+                    "description": "Human-facing explanation. It is not load-bearing. SPOILER-BEARING."
                 }
             }
         },
         "block_height": {
             "type": "string",
+            "description": "Vertical positioning of the defensive block as an initial condition. LEARNER-SAFE.",
             "enum": [
                 "HIGH_PRESS",
                 "MID_BLOCK",
@@ -1059,6 +1068,7 @@
         },
         "block_compactness": {
             "type": "string",
+            "description": "Spacing of the defensive block as an initial condition. LEARNER-SAFE.",
             "enum": [
                 "COMPACT",
                 "NORMAL",
@@ -1067,6 +1077,7 @@
         },
         "pressure_level": {
             "type": "string",
+            "description": "Intensity of defensive pressure as an initial condition. LEARNER-SAFE.",
             "enum": [
                 "LOW",
                 "MEDIUM",
@@ -1075,7 +1086,7 @@
         },
         "ball_state": {
             "type": "string",
-            "description": "Ball possession state. CONTROLLED means a player owns the ball. LOOSE means no player owns it. An in-flight ball is represented only during a PASS, CROSS, or SHOT event and does not constitute a persistent state between events.",
+            "description": "Ball possession state. CONTROLLED means a player owns the ball. LOOSE means no player owns it. An in-flight ball is represented only during a PASS, CROSS, or SHOT event and does not constitute a persistent state between events. While the ball is CONTROLLED its position is the owner's position; while it is LOOSE its position is wherever the action that released it left it.",
             "enum": [
                 "CONTROLLED",
                 "LOOSE"
@@ -1083,7 +1094,7 @@
         },
         "pass_trajectory": {
             "type": "string",
-            "description": "Ball-flight mode for a normal pass. This is a visual/physical semantic property and must not be invented by a renderer.",
+            "description": "Ball-flight mode for a normal pass. This is a visual/physical semantic property and must not be invented by a renderer. It affects only the vertical profile of the flight; the ground-plane path is the straight line defined in pass_action. GROUND stays on the surface, DRIVEN is a flat hard pass at low height, and LOFTED rises well above head height.",
             "enum": [
                 "GROUND",
                 "DRIVEN",
@@ -1092,7 +1103,7 @@
         },
         "cross_trajectory": {
             "type": "string",
-            "description": "Ball-flight mode for a cross.",
+            "description": "Ball-flight mode for a cross. It affects only the vertical profile of the flight; the ground-plane path is the straight line defined in cross_action. DRIVEN_CROSS is flat and fast, LOFTED_CROSS is high and hanging.",
             "enum": [
                 "DRIVEN_CROSS",
                 "LOFTED_CROSS"
@@ -1100,7 +1111,7 @@
         },
         "shot_trajectory": {
             "type": "string",
-            "description": "Ball-flight mode for a shot.",
+            "description": "Ball-flight mode for a shot. It affects only the vertical profile of the flight; the ground-plane path is the straight line from the shooter to the destination defined by shot_result. GROUND stays on the surface, LOW_AERIAL rises to roughly waist or chest height, and HIGH_AERIAL rises above the crossbar's height along the way.",
             "enum": [
                 "GROUND",
                 "LOW_AERIAL",
@@ -1109,7 +1120,7 @@
         },
         "cross_result": {
             "type": "string",
-            "description": "Result of the cross. RECEIVED transfers possession to target_player. DEFENDED and LOOSE leave the ball uncontrolled at the target area. OUT_OF_PLAY ends the scenario.",
+            "description": "Result of the cross. RECEIVED transfers possession to target_player, and the ball's destination is that player's position at the end of the event. DEFENDED and LOOSE leave the ball uncontrolled at the center of target_zone. OUT_OF_PLAY ends the scenario: the ball leaves the field of play and a CROSS carrying this result must be the final event in the events array.",
             "enum": [
                 "RECEIVED",
                 "DEFENDED",
@@ -1119,7 +1130,7 @@
         },
         "shot_result": {
             "type": "string",
-            "description": "Result of the shot. GOAL and OUT_OF_PLAY are terminal and must be the final event. SAVED, BLOCKED, POST, and DEFLECTED leave the ball potentially recoverable; LOOSE explicitly leaves it uncontrolled. A later TURNOVER may establish possession following a loose/deflected ball.",
+            "description": "Result of the shot. GOAL and OUT_OF_PLAY are terminal and must be the final event. SAVED, BLOCKED, POST, and DEFLECTED leave the ball potentially recoverable; LOOSE explicitly leaves it uncontrolled. A later TURNOVER may establish possession following a loose/deflected ball. BALL DESTINATION. The ball's destination point is determined by this field and must not be invented by a consumer. Let G be the goal center at normalized (1/2, 1), let P be the nearer post of that goal at x = 1/2 -/+ 3.66/68 on the side closer to the shooter, and let S be the shooter's position at start_time. GOAL: the ball finishes at G and the scenario ends. OUT_OF_PLAY: the ball travels to G and then leaves the field of play; the scenario ends. SAVED: the ball finishes at G and becomes LOOSE. DEFLECTED: the ball finishes at G and becomes LOOSE. LOOSE: the ball finishes at G and becomes LOOSE. POST: the ball finishes at P and becomes LOOSE. BLOCKED: the ball finishes at the midpoint of S and G and becomes LOOSE. OFF_TARGET: the ball finishes on the goal line at y=1 with x displaced 4/68 beyond the nearer post, away from the goal, and becomes LOOSE; a scenario that intends the ball to leave play should use OUT_OF_PLAY instead.",
             "enum": [
                 "GOAL",
                 "SAVED",
