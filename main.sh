@@ -31,6 +31,9 @@ venv="$here/.venv"
     uv -C "$here" pip install -r "$here/requirements.txt"
 }
 
+# Set Ollama model
+ollama_model=qwen3.8:27b-mlx
+
 # Open loop
 while true; do
 
@@ -40,7 +43,7 @@ while true; do
     # Invoke LLM agent to fill in stubbed plans
     (
         cd "$here" && ollama launch codex \
-            --model qwen3.8:27b-mlx \
+            --model "$ollama_model" \
             -- \
             exec \
             --sandbox \
@@ -51,7 +54,7 @@ while true; do
     # Invoke LLM agent to fill in stubbed scenarios
     (
         cd "$here" && ollama launch codex \
-            --model qwen3.8:27b-mlx \
+            --model "$ollama_model" \
             -- \
             exec \
             --sandbox \
