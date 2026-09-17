@@ -2,6 +2,9 @@ import sys
 from pathlib import Path
 from typing import Any, Optional, TypedDict, cast
 
+# Add root to import path
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
 from libs.scenario_g import (
     BallState,
     CheckToBallAction,

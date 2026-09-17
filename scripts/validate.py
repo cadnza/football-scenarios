@@ -6,14 +6,13 @@ from typing import Literal, cast
 import yaml
 from jsonschema import Draft202012Validator
 
-from libs.scenario_g import FootballTacticalScenario
-from libs.validate_scenario_semantics import validate_scenario_semantics
-
 # Add root to import path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from libs.config import Config
 from libs.plan_g import FootballTacticalPlan
+from libs.scenario_g import FootballTacticalScenario
+from libs.validate_scenario_semantics import validate_scenario_semantics
 
 # Orient
 here = Path(__file__).resolve().parents[1]
