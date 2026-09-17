@@ -5,6 +5,12 @@ set -e
 # Orient
 here="$(realpath "$(dirname "$0")")"
 
+# Make sure codex is installed
+command -v codex || {
+    echo "Please install codex" >&2
+    exit 1
+}
+
 # Read first argument as number of files to generate
 [ -z "$1" ] && {
     echo "Please provide a number of files to generate as \$1" >&2
@@ -23,17 +29,23 @@ venv="$here/.venv"
 "$venv/bin/python" "$here/scripts/stub_files.py" "$n_files"
 
 # Invoke LLM agent to fill in stubbed plans
-(cd "$here" && ollama launch opencode \
-    --model qwen3.8:27b-mlx \
-    -- \
-    run \
-    "$(cat "$here/prompts/write-plans.md")" \
-    --auto)
+(
+    cd "$here" && ollama launch codex \
+        --model qwen3.8:27b-mlx \
+        -- \
+        exec \
+        --sandbox \
+        workspace-write \
+        "$(cat "$here/prompts/write-plans.md")"
+)
 
 # Invoke LLM agent to fill in stubbed scenarios
-(cd "$here" && ollama launch opencode \
-    --model qwen3.8:27b-mlx \
-    -- \
-    run \
-    "$(cat "$here/prompts/write-scenarios.md")" \
-    --auto)
+(
+    cd "$here" && ollama launch codex \
+        --model qwen3.8:27b-mlx \
+        -- \
+        exec \
+        --sandbox \
+        workspace-write \
+        "$(cat "$here/prompts/write-scenarios.md")"
+)
