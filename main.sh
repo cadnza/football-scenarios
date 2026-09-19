@@ -2,14 +2,10 @@
 
 set -e
 
+# SERVER: ./.venv/bin/mlx_lm.server
+
 # Orient
 here="$(realpath "$(dirname "$0")")"
-
-# Make sure codex is installed
-command -v codex >/dev/null || {
-    echo "Please install codex" >&2
-    exit 1
-}
 
 # Read first argument as number of files to generate
 [ -z "${1+x}" ] && {
@@ -24,6 +20,18 @@ if [ -n "${2+x}" ] && [ "$2" != loop ]; then
     exit 1
 fi
 
+# Make sure aider is installed
+command -v aider >/dev/null || {
+    echo "Please install aider" >&2
+    exit 1
+}
+
+# Check server
+curl -s --fail-with-body http://localhost:8080/v1/models >/dev/null || {
+    echo "Failed to connect to OpenAI server" >&2
+    exit 1
+}
+
 # Create venv if needed
 venv="$here/.venv"
 [ -d "$venv" ] || {
@@ -31,8 +39,14 @@ venv="$here/.venv"
     uv -C "$here" pip install -r "$here/requirements.txt"
 }
 
-# Set Ollama model
-ollama_model=qwen3.8:27b-mlx
+# Set model ID
+model_id=mlx-community/Qwen3.8-27B-4bit
+
+# Export environment variables
+export OPENAI_API_BASE=http://127.0.0.1:8080/v1
+export OPENAI_API_KEY=oranges
+
+aider --no-gitignore --model "openai/$model_id" --yes-always --message-file
 
 # Open loop
 while true; do
@@ -42,24 +56,20 @@ while true; do
 
     # Invoke LLM agent to fill in stubbed plans
     (
-        cd "$here" && ollama launch codex \
-            --model "$ollama_model" \
-            -- \
-            exec \
-            --sandbox \
-            workspace-write \
-            "$(cat "$here/prompts/write-plans.md")"
+        cd "$here" && aider \
+            --no-gitignore \
+            --model "openai/$model_id" \
+            --yes-always \
+            --message-file "$here/prompts/write-plans.md"
     )
 
     # Invoke LLM agent to fill in stubbed scenarios
     (
-        cd "$here" && ollama launch codex \
-            --model "$ollama_model" \
-            -- \
-            exec \
-            --sandbox \
-            workspace-write \
-            "$(cat "$here/prompts/write-scenarios.md")"
+        cd "$here" && aider \
+            --no-gitignore \
+            --model "openai/$model_id" \
+            --yes-always \
+            --message-file "$here/prompts/write-scenarios.md"
     )
 
     # Break if not looping
