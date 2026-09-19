@@ -46,8 +46,6 @@ model_id=mlx-community/Qwen3.8-27B-4bit
 export OPENAI_API_BASE=http://127.0.0.1:8080/v1
 export OPENAI_API_KEY=oranges
 
-aider --no-gitignore --model "openai/$model_id" --yes-always --message-file
-
 # Open loop
 while true; do
 
@@ -60,7 +58,7 @@ while true; do
             --no-gitignore \
             --model "openai/$model_id" \
             --yes-always \
-            --message-file "$here/prompts/write-plans.md"
+            -f "$here/prompts/write-plans.md"
     )
 
     # Invoke LLM agent to fill in stubbed scenarios
@@ -69,7 +67,7 @@ while true; do
             --no-gitignore \
             --model "openai/$model_id" \
             --yes-always \
-            --message-file "$here/prompts/write-scenarios.md"
+            -f "$here/prompts/write-scenarios.md"
     )
 
     # Break if not looping
